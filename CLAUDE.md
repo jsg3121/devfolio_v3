@@ -232,6 +232,7 @@ src/
 - 사이트 기획 (IA): `.claude/portfolio_ia.md`
 - 폴더 구조 및 콘텐츠 스키마: `.claude/portfolio_astro_folder_structure_and_content_schema.md`
 - 의사결정 기록: `.claude/decisions/`
+- 커스텀 명령어: `.claude/commands/`
 
 ### `.claude/` 폴더 관리 규칙
 
@@ -252,3 +253,18 @@ src/
   - **결정**: 최종 선택한 방향
   - **근거**: 결정의 이유
 - 기존 결정을 변경할 경우, 기존 ADR의 상태를 '폐기됨'으로 변경하고 새 ADR을 작성한다.
+
+## 커스텀 명령어
+
+프로젝트 전용 slash command는 `.claude/commands/` 폴더에서 관리한다.
+
+### 사용 가능한 명령어
+
+| 명령어 | 사용법 | 설명 |
+|--------|--------|------|
+| `/create-pr` | `/create-pr {base브랜치}` | 현재 브랜치에서 지정한 base 브랜치로 PR을 생성한다. `.github/PULL_REQUEST_TEMPLATE.md` 형식을 따른다. |
+
+### 명령어 관리 규칙
+
+- 커스텀 명령어 파일은 `.claude/commands/` 폴더에 마크다운 형식으로 작성한다.
+- 새 명령어를 추가할 경우, 이 섹션의 표에도 함께 등록한다.
