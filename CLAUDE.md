@@ -128,6 +128,16 @@ function getFullName(first: string, last: string): string {
 ## 디렉토리 구조
 
 ```text
+public/
+├── favicon.svg
+├── robots.txt
+├── resume/
+│   └── resume-latest.pdf              # PDF 이력서
+└── og/
+    ├── default.png                    # 기본 OG 이미지
+    ├── work.png
+    └── case-studies.png
+
 src/
 ├── assets/
 │   ├── images/
@@ -189,9 +199,24 @@ src/
 
 - 사이트 기획 (IA): `.claude/portfolio_ia.md`
 - 폴더 구조 및 콘텐츠 스키마: `.claude/portfolio_astro_folder_structure_and_content_schema.md`
+- 의사결정 기록: `.claude/decisions/`
 
-### 문서 참조 규칙
+### `.claude/` 폴더 관리 규칙
 
+- `.claude/` 폴더는 **프로젝트 루트**에 위치한다. 글로벌(`~/.claude/`)이 아닌 프로젝트별 문서를 관리하는 폴더다.
+- 기획 문서, 기술 설계 문서, 의사결정 기록(ADR) 등 프로젝트 관련 문서는 모두 이 폴더에서 관리한다.
 - 명령을 수행할 때 관련된 기획, 구조, 콘텐츠 정보가 필요한 경우 **반드시 `.claude/` 폴더 내의 md 파일을 먼저 확인**한다.
 - 기획 문서에 이미 정의된 내용을 임의로 변경하거나 무시하지 않는다.
 - 문서에 없는 새로운 결정이 필요한 경우, 사용자에게 먼저 확인한다.
+
+## 의사결정 기록 (ADR)
+
+- 개발 중 기술적 의사결정이 필요한 경우, `.claude/decisions/` 폴더에 ADR 파일을 작성한다.
+- 파일명 형식: `NNN-제목.md` (예: `001-astro-version.md`)
+- ADR에는 다음 항목을 포함한다:
+  - **상태**: 제안됨 / 승인됨 / 폐기됨
+  - **배경**: 왜 이 의사결정이 필요했는지
+  - **논의 내용**: 검토한 선택지와 각각의 장단점
+  - **결정**: 최종 선택한 방향
+  - **근거**: 결정의 이유
+- 기존 결정을 변경할 경우, 기존 ADR의 상태를 '폐기됨'으로 변경하고 새 ADR을 작성한다.

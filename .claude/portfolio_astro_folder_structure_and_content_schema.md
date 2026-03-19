@@ -68,29 +68,17 @@ portfolio/
 │   │   └── icons/
 │   │
 │   ├── components/
-│   │   ├── common/
+│   │   ├── common/                     # 범용 UI (Button, Tag, SectionHeading 등)
 │   │   │   ├── Button.astro
 │   │   │   ├── Tag.astro
 │   │   │   ├── SectionHeading.astro
 │   │   │   ├── Prose.astro
 │   │   │   └── MetaHead.astro
-│   │   ├── layout/
-│   │   │   ├── Header.astro
-│   │   │   ├── Footer.astro
-│   │   │   ├── Navigation.astro
-│   │   │   └── Container.astro
-│   │   ├── career/
-│   │   │   ├── CareerTimeline.astro
-│   │   │   ├── CareerSection.astro
-│   │   │   └── AchievementList.astro
-│   │   ├── case-study/
-│   │   │   ├── CaseStudyCard.astro
-│   │   │   ├── CaseStudyHero.astro
-│   │   │   ├── CaseStudyMeta.astro
-│   │   │   └── CaseStudyRelatedList.astro
-│   │   └── side-project/
-│   │       ├── SideProjectCard.astro
-│   │       └── SideProjectGrid.astro
+│   │   └── layout/                     # 레이아웃 관련 (Header, Footer, Navigation)
+│   │       ├── Header.astro
+│   │       ├── Footer.astro
+│   │       ├── Navigation.astro
+│   │       └── Container.astro
 │   │
 │   ├── content/
 │   │   ├── career/
@@ -106,13 +94,10 @@ portfolio/
 │   │   ├── side-projects/
 │   │   │   ├── project-a.mdx
 │   │   │   └── project-b.mdx
-│   │   ├── taxonomy/
-│   │   │   ├── categories.json
-│   │   │   ├── skills.json
-│   │   │   └── companies.json
-│   │   └── snippets/
-│   │       ├── intro.md
-│   │       └── about.md
+│   │   └── taxonomy/                   # 카테고리, 기술 스택, 회사 메타 (JSON)
+│   │       ├── categories.json
+│   │       ├── skills.json
+│   │       └── companies.json
 │   │
 │   ├── features/
 │   │   ├── home/
@@ -134,10 +119,9 @@ portfolio/
 │   │       └── FeaturedSideProjects.astro
 │   │
 │   ├── layouts/
-│   │   ├── BaseLayout.astro
-│   │   ├── PageLayout.astro
-│   │   ├── CaseStudyLayout.astro
-│   │   └── MarkdownLayout.astro
+│   │   ├── BaseLayout.astro            # 사이트 공통 뼈대 (head, SEO, 폰트)
+│   │   ├── PageLayout.astro            # 일반 페이지 레이아웃
+│   │   └── CaseStudyLayout.astro       # 케이스 스터디 읽기형 레이아웃 (MDX 본문 포함)
 │   │
 │   ├── lib/
 │   │   ├── content/
@@ -226,7 +210,8 @@ portfolio/
 - `case-studies/`: 문제 해결 사례 상세 문서
 - `side-projects/`: 개인 프로젝트 상세 문서
 - `taxonomy/`: 카테고리, 기술 스택, 회사 메타 정보
-- `snippets/`: 홈 소개문, About 소개문 등 짧은 재사용 텍스트
+
+> 홈 소개문, About 소개문 등 짧은 텍스트는 `src/lib/constants/`에서 관리한다.
 
 ---
 
@@ -245,15 +230,13 @@ portfolio/
 
 ## 4.5 src/components
 
-여러 페이지에서 재사용할 수 있는 UI 컴포넌트를 둔다.  
-표현 단위가 작고 범용적인 컴포넌트 위주로 관리한다.
+여러 페이지에서 재사용할 수 있는 범용 UI 컴포넌트를 둔다.
+`common/`과 `layout/` 두 하위 폴더로 구성한다.
 
-예시:
-- 버튼
-- 태그
-- 메타 정보 블록
-- 카드 컴포넌트
-- 공통 섹션 헤더
+- `common/`: 범용 UI (Button, Tag, SectionHeading, Prose, MetaHead 등)
+- `layout/`: 레이아웃 관련 (Header, Footer, Navigation, Container)
+
+> 도메인 전용 컴포넌트(career, case-study, side-project 관련)는 `src/features/`에 둔다.
 
 ---
 
@@ -289,10 +272,9 @@ UI와 직접 연결되지 않는 유틸, 데이터 조회 함수, SEO 관련 로
 문서형 페이지와 상세 페이지에서 반복되는 레이아웃을 관리한다.
 
 권장 레이아웃:
-- `BaseLayout`: 사이트 공통 뼈대
-- `PageLayout`: 일반 페이지 레이아웃
-- `CaseStudyLayout`: 긴 읽기형 상세 페이지 레이아웃
-- `MarkdownLayout`: MDX 본문 렌더링용 레이아웃
+- `BaseLayout`: 사이트 공통 뼈대 (head, SEO, 폰트)
+- `PageLayout`: 일반 페이지 레이아웃 (BaseLayout 확장, Header/Footer 포함)
+- `CaseStudyLayout`: 케이스 스터디 읽기형 레이아웃 (MDX 본문 렌더링 포함)
 
 ---
 
@@ -344,7 +326,7 @@ UI와 직접 연결되지 않는 유틸, 데이터 조회 함수, SEO 관련 로
 - `sideProjects`
 - `taxonomy`
 
-초기에는 `snippets`는 컬렉션으로 만들지 않고 일반 파일 또는 constants로 관리해도 된다.
+홈 소개문, About 소개문 등 짧은 텍스트는 `src/lib/constants/`에서 관리한다.
 
 ---
 
