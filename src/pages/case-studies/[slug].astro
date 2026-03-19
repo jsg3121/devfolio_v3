@@ -1,0 +1,21 @@
+---
+import CaseStudyLayout from '@/layouts/CaseStudyLayout.astro';
+import { getCollection } from 'astro:content';
+import type { GetStaticPaths } from 'astro';
+
+export const getStaticPaths: GetStaticPaths = async () => {
+  const caseStudies = await getCollection('caseStudies');
+  return caseStudies.map((entry) => ({
+    params: { slug: entry.data.slug },
+    props: { entry },
+  }));
+};
+
+const { entry } = Astro.props;
+const { Content } = await entry.render();
+---
+
+<CaseStudyLayout title={`${entry.data.title} | 장선규`} description={entry.data.summary}>
+  <h1>{entry.data.title}</h1>
+  <Content />
+</CaseStudyLayout>

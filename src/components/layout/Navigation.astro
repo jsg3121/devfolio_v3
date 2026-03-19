@@ -1,0 +1,20 @@
+---
+const navItems = [
+  { label: 'Work', href: '/work' },
+  { label: 'Side Projects', href: '/side-projects' },
+  { label: 'About', href: '/about' },
+];
+---
+
+<nav>
+  <a href="/">장선규</a>
+  <ul>
+    {
+      navItems.map((item) => (
+        <li>
+          <a href={item.href}>{item.label}</a>
+        </li>
+      ))
+    }
+  </ul>
+</nav>
