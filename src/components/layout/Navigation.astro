@@ -1,16 +1,12 @@
 ---
-const navItems = [
-  { label: 'Work', href: '/work' },
-  { label: 'Side Projects', href: '/side-projects' },
-  { label: 'About', href: '/about' },
-];
+import { NAV_ITEMS } from '@/lib/constants/navigation';
 ---
 
 <nav>
   <a href="/">장선규</a>
   <ul>
     {
-      navItems.map((item) => (
+      NAV_ITEMS.map((item) => (
         <li>
           <a href={item.href}>{item.label}</a>
         </li>
