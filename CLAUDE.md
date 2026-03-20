@@ -66,6 +66,18 @@ function getFullName(first: string, last: string): string {
 </div>
 ```
 
+### 반응형 디자인
+
+- **모바일 퍼스트** 원칙으로 작성한다. 기본 스타일이 모바일, `md:` / `lg:` 로 확장한다.
+- 브레이크포인트: `md` (768px), `lg` (1024px) 두 단계를 기본으로 사용한다.
+- 콘텐츠 최대 너비: `max-w-5xl` (1024px)을 표준으로 사용한다.
+
+### 시맨틱 HTML
+
+- 페이지 구조에 시맨틱 태그를 사용한다: `<header>`, `<nav>`, `<main>`, `<section>`, `<article>`, `<footer>`.
+- 각 `<section>`에는 헤딩 태그(`h2`, `h3` 등)를 반드시 포함한다.
+- `<div>`는 스타일링 목적의 래퍼로만 사용하고, 의미 있는 영역에는 시맨틱 태그를 우선 사용한다.
+
 ### 네이밍
 
 - 컴포넌트 파일: **PascalCase** (`Hero.astro`, `CareerTimeline.astro`)
