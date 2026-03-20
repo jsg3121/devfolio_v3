@@ -109,12 +109,15 @@ const getCaseStudiesForCompany = (companySlug: string) => {
   gsap.registerPlugin(ScrollTrigger);
 
   const initTimeline = () => {
+    // 이전 ScrollTrigger 인스턴스 정리
+    ScrollTrigger.getAll().forEach((st) => st.kill());
+
     const timeline = document.querySelector('.career-timeline');
     if (!timeline) return;
 
     const progress = timeline.querySelector('.timeline-progress') as HTMLElement;
-    const items = timeline.querySelectorAll('.timeline-item');
-    const nodes = timeline.querySelectorAll('.timeline-node');
+    const items = timeline.querySelectorAll<HTMLElement>('.timeline-item');
+    const nodes = timeline.querySelectorAll<HTMLElement>('.timeline-node');
 
     if (!progress) return;
 
@@ -135,18 +138,26 @@ const getCaseStudiesForCompany = (companySlug: string) => {
     );
 
     // 각 타임라인 아이템 등장
-    items.forEach((item, index) => {
-      gsap.from(item, {
-        opacity: 0,
-        x: -20,
-        duration: 0.6,
-        ease: 'power2.out',
-        scrollTrigger: {
-          trigger: item,
-          start: 'top 85%',
-          toggleActions: 'play none none none',
+    items.forEach((item) => {
+      gsap.set(item, { opacity: 0, x: -20 });
+
+      ScrollTrigger.create({
+        trigger: item,
+        start: 'top 85%',
+        onEnter: () => {
+          gsap.to(item, {
+            opacity: 1,
+            x: 0,
+            duration: 0.6,
+            ease: 'power2.out',
+          });
         },
-        delay: index * 0.05,
+        onRefresh: (self) => {
+          // 새로고침 시 이미 뷰포트를 지난 아이템은 즉시 표시
+          if (self.progress > 0) {
+            gsap.set(item, { opacity: 1, x: 0 });
+          }
+        },
       });
     });
 
@@ -159,15 +170,20 @@ const getCaseStudiesForCompany = (companySlug: string) => {
           node.classList.add('border-gray-900', 'bg-gray-900');
           node.classList.remove('border-gray-300', 'bg-white');
         },
+        onRefresh: (self) => {
+          if (self.progress > 0) {
+            node.classList.add('border-gray-900', 'bg-gray-900');
+            node.classList.remove('border-gray-300', 'bg-white');
+          }
+        },
       });
     });
+
+    // 레이아웃 계산 완료 후 ScrollTrigger 위치 갱신
+    ScrollTrigger.refresh();
   };
 
-  initTimeline();
-  document.addEventListener('astro:page-load', () => {
-    ScrollTrigger.getAll().forEach((st) => st.kill());
-    initTimeline();
-  });
+  document.addEventListener('astro:page-load', initTimeline);
 </script>
 
 <style>
