@@ -148,43 +148,43 @@ public/
 └── og/
     ├── default.png                    # 기본 OG 이미지
     ├── work.png
-    └── case-studies.png
+    └── articles.png
 
 src/
 ├── assets/
 │   ├── images/
 │   │   ├── profile/                # 프로필 이미지
 │   │   ├── companies/              # 회사 로고
-│   │   ├── case-studies/           # 케이스 스터디 대표 이미지
+│   │   ├── articles/               # 아티클 대표 이미지
 │   │   └── side-projects/          # 사이드 프로젝트 썸네일
 │   └── icons/
 ├── layouts/
 │   ├── BaseLayout.astro            # 사이트 공통 뼈대 (head, SEO, 폰트)
 │   ├── PageLayout.astro            # 일반 페이지 레이아웃
-│   └── CaseStudyLayout.astro       # 케이스 스터디 읽기형 레이아웃
+│   └── ArticleLayout.astro          # 아티클 읽기형 레이아웃
 ├── pages/
 │   ├── index.astro                 # Home
 │   ├── work.astro                  # Work (경력 허브)
-│   ├── case-studies/
-│   │   └── [slug].astro            # Case Study 상세
+│   ├── articles/
+│   │   └── [slug].astro            # Article 상세
 │   ├── side-projects.astro         # Side Projects
 │   └── about.astro                 # About + Resume + Contact
 ├── features/
 │   ├── home/                       # Home 전용 섹션 컴포넌트
 │   ├── work/                       # Work 전용 섹션 컴포넌트
-│   ├── case-studies/               # Case Study 전용 섹션 컴포넌트
+│   ├── articles/                   # Articles 전용 섹션 컴포넌트
 │   └── side-projects/              # Side Projects 전용 섹션 컴포넌트
 ├── components/
 │   ├── common/                     # 범용 UI (Button, Tag, SectionHeading 등)
 │   └── layout/                     # 레이아웃 관련 (Header, Footer, Navigation)
 ├── lib/
-│   ├── content/                    # 콘텐츠 조회 함수 (career.ts, caseStudies.ts 등)
+│   ├── content/                    # 콘텐츠 조회 함수 (career.ts, articles.ts 등)
 │   ├── seo/                        # SEO 유틸 (meta.ts, jsonld.ts)
 │   ├── utils/                      # 범용 유틸 (date.ts, sort.ts 등)
 │   └── constants/                  # 상수 (site.ts, navigation.ts, social.ts)
 ├── content/
 │   ├── career/                     # 회사별 경력 데이터
-│   ├── case-studies/               # MDX 케이스 스터디
+│   ├── articles/                   # MDX 아티클 (기술 블로그)
 │   ├── side-projects/              # 사이드 프로젝트 데이터
 │   └── taxonomy/                   # 카테고리, 기술 스택, 회사 메타 (JSON)
 ├── styles/
@@ -196,8 +196,8 @@ src/
 
 ## 콘텐츠 관리
 
-- 경력, 케이스 스터디, 사이드 프로젝트는 `src/content/` 하위에서 Astro Content Collections로 관리한다.
-- 케이스 스터디는 MDX 형식으로 작성하며, 프론트매터에 필수 메타데이터를 포함한다.
+- 경력, 아티클, 사이드 프로젝트는 `src/content/` 하위에서 Astro Content Collections로 관리한다.
+- 아티클은 MDX 형식으로 작성하며, 프론트매터에 필수 메타데이터를 포함한다.
 - 콘텐츠 스키마는 `src/content/config.ts`에서 Zod로 정의한다.
 
 ## SEO 규칙
