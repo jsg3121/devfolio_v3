@@ -12,44 +12,76 @@ const isActive = (href: string): boolean => {
 <nav class="flex items-center justify-between w-full" aria-label="메인 내비게이션">
   <a
     href="/"
-    class="text-base font-semibold text-gray-900 hover:text-gray-600 transition-colors"
+    class="text-base font-semibold text-gray-900 dark:text-slate-100 hover:text-gray-600 dark:hover:text-slate-300 transition-colors"
     transition:name="site-logo"
   >
     장선규
   </a>
 
   <!-- 데스크톱 메뉴 -->
-  <ul class="hidden md:flex items-center gap-8">
-    {
-      NAV_ITEMS.map((item) => (
-        <li>
-          <a
-            href={item.href}
-            class:list={[
-              'text-sm transition-colors',
-              isActive(item.href)
-                ? 'text-gray-900 font-medium'
-                : 'text-gray-500 hover:text-gray-900',
-            ]}
-            aria-current={isActive(item.href) ? 'page' : undefined}
-          >
-            {item.label}
-          </a>
-        </li>
-      ))
-    }
-  </ul>
+  <div class="hidden md:flex items-center gap-8">
+    <ul class="flex items-center gap-8">
+      {
+        NAV_ITEMS.map((item) => (
+          <li>
+            <a
+              href={item.href}
+              class:list={[
+                'text-sm transition-colors',
+                isActive(item.href)
+                  ? 'text-gray-900 dark:text-slate-100 font-medium'
+                  : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100',
+              ]}
+              aria-current={isActive(item.href) ? 'page' : undefined}
+            >
+              {item.label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+    <!-- 다크모드 토글 (데스크톱) -->
+    <button
+      type="button"
+      class="theme-toggle w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+      aria-label="테마 전환"
+    >
+      <!-- 라이트모드 아이콘 (해) -->
+      <svg class="theme-icon-light w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+      <!-- 다크모드 아이콘 (달) -->
+      <svg class="theme-icon-dark w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+      </svg>
+    </button>
+  </div>
 
-  <!-- 모바일 햄버거 버튼 -->
-  <button
-    type="button"
-    class="mobile-menu-toggle md:hidden flex flex-col justify-center items-center w-8 h-8 gap-1.5"
-    aria-label="메뉴 열기"
-    aria-expanded="false"
-  >
-    <span class="menu-bar block w-5 h-px bg-gray-900 transition-all duration-200"></span>
-    <span class="menu-bar block w-5 h-px bg-gray-900 transition-all duration-200"></span>
-  </button>
+  <!-- 모바일: 토글 + 햄버거 -->
+  <div class="flex md:hidden items-center gap-2">
+    <!-- 다크모드 토글 (모바일) -->
+    <button
+      type="button"
+      class="theme-toggle w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+      aria-label="테마 전환"
+    >
+      <svg class="theme-icon-light w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+      <svg class="theme-icon-dark w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+      </svg>
+    </button>
+    <button
+      type="button"
+      class="mobile-menu-toggle flex flex-col justify-center items-center w-8 h-8 gap-1.5"
+      aria-label="메뉴 열기"
+      aria-expanded="false"
+    >
+      <span class="menu-bar block w-5 h-px bg-gray-900 dark:bg-slate-100 transition-all duration-200"></span>
+      <span class="menu-bar block w-5 h-px bg-gray-900 dark:bg-slate-100 transition-all duration-200"></span>
+    </button>
+  </div>
 </nav>
 
 <!-- 모바일 메뉴 패널 -->
@@ -63,8 +95,8 @@ const isActive = (href: string): boolean => {
             class:list={[
               'block py-2.5 text-sm transition-colors',
               isActive(item.href)
-                ? 'text-gray-900 font-medium'
-                : 'text-gray-500 hover:text-gray-900',
+                ? 'text-gray-900 dark:text-slate-100 font-medium'
+                : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100',
             ]}
             aria-current={isActive(item.href) ? 'page' : undefined}
           >
@@ -77,6 +109,28 @@ const isActive = (href: string): boolean => {
 </div>
 
 <script>
+  const updateThemeIcons = () => {
+    const isDark = document.documentElement.classList.contains('dark');
+    document.querySelectorAll('.theme-icon-light').forEach((el) => {
+      el.classList.toggle('hidden', !isDark);
+    });
+    document.querySelectorAll('.theme-icon-dark').forEach((el) => {
+      el.classList.toggle('hidden', isDark);
+    });
+  };
+
+  const initThemeToggle = () => {
+    updateThemeIcons();
+
+    document.querySelectorAll('.theme-toggle').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        updateThemeIcons();
+      });
+    });
+  };
+
   const initMobileMenu = () => {
     const toggle = document.querySelector('.mobile-menu-toggle');
     const menu = document.querySelector('.mobile-menu');
@@ -92,7 +146,6 @@ const isActive = (href: string): boolean => {
       toggle.setAttribute('aria-label', isOpen ? '메뉴 닫기' : '메뉴 열기');
       menu.setAttribute('aria-hidden', String(!isOpen));
 
-      // 햄버거 → X 전환
       if (isOpen) {
         bars[0]?.classList.add('translate-y-[4px]', 'rotate-45');
         bars[1]?.classList.add('-translate-y-[4px]', '-rotate-45');
@@ -103,5 +156,8 @@ const isActive = (href: string): boolean => {
     });
   };
 
-  document.addEventListener('astro:page-load', initMobileMenu);
+  document.addEventListener('astro:page-load', () => {
+    initThemeToggle();
+    initMobileMenu();
+  });
 </script>
