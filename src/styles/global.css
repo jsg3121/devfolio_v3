@@ -5,6 +5,12 @@
 /* Tailwind v4: dark variant를 class 기반으로 설정 */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ===== 테마 전환 트랜지션 (초기 로드 깜빡임 방지) ===== */
+
+body[data-theme-ready='true'] {
+  transition: color 200ms ease, background-color 200ms ease;
+}
+
 /* ===== 스크롤 등장 애니메이션 ===== */
 
 [data-reveal] {
