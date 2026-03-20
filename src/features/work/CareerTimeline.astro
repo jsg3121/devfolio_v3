@@ -38,12 +38,12 @@ const formatDate = (date: Date): string => {
                 <div class="timeline-node absolute -left-1 md:left-0 w-2 h-2 md:w-4 md:h-4 rounded-full border-2 mt-2" />
                 <article>
                   <header class="mb-4">
-                    <div class="flex flex-col md:flex-row md:items-baseline md:gap-4 mb-1">
+                    <div class="flex gap-2 items-center md:flex-row md:gap-4 mb-1">
                       <h3 class="text-xl md:text-2xl font-semibold text-gray-900 dark:text-slate-100">
                         {career.data.company}
                       </h3>
                       {career.data.isCurrent && (
-                        <span class="text-xs px-2 py-0.5 bg-gray-900 dark:bg-slate-200 text-white dark:text-slate-900 rounded-full w-fit">
+                        <span class="text-xs h-5 px-2 py-0.5 bg-gray-900 dark:bg-slate-200 text-white dark:text-slate-900 rounded-full w-fit">
                           현재
                         </span>
                       )}
