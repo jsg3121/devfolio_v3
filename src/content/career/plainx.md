@@ -20,7 +20,7 @@ skills:
 domains:
   - "platform"
 featured: false
-order: 4
+order: 5
 ---
 
 ## 2019.06 ~ 2020.08 · 팀원
