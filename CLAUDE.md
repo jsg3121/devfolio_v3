@@ -218,13 +218,13 @@ src/
 
 ### 워크플로우
 
-- 반드시 현재 브랜치를 먼저 확인
-
-1. 새 버전 작업 시작: `master`에서 `feature/{version}` 브랜치 생성
-2. 세부 작업은 `feature/{version}` 브랜치에서 하위 브랜치를 분기하여 진행
-3. 하위 작업 완료 시 `feature/{version}`으로 PR & 머지
-4. 버전의 모든 작업 완료 시 `feature/{version}` → `master`로 릴리즈 PR & 머지
-5. 머지 후 `master`에 버전 태그 생성 (예: `v0.1.0`)
+1. 현재 브랜치를 확인
+2. `master` 브랜치라면 신규 버전 브랜치 생성 확인 요청
+3. 새 버전 작업 시작: `master`에서 `feature/{version}` 브랜치 생성
+4. 세부 작업은 `feature/{version}` 브랜치에서 하위 브랜치를 분기하여 진행
+5. 하위 작업 완료 시 `feature/{version}`으로 PR & 머지
+6. 버전의 모든 작업 완료 시 `feature/{version}` → `master`로 릴리즈 PR & 머지
+7. 머지 후 `master`에 버전 태그 생성 (예: `v0.1.0`)
 
 ### 적용 범위
 
