@@ -61,9 +61,9 @@ function getFullName(first: string, last: string): string {
 ```astro
 <!-- Good -->
 <div class="flex items-center gap-4 text-gray-900">
-
-<!-- Bad -->
-<div style="display: flex; align-items: center; gap: 16px; color: #111;">
+  <!-- Bad -->
+  <div style="display: flex; align-items: center; gap: 16px; color: #111;"></div>
+</div>
 ```
 
 ### 네이밍
@@ -197,6 +197,8 @@ src/
 
 ## 브랜치 전략
 
+- 모든 작업에서는 현재 브랜치를 확인하고 모든 작업에서 지켜져야함
+
 ### 버전 관리
 
 - **Semantic Versioning**을 따른다: `MAJOR.MINOR.PATCH`
@@ -215,6 +217,8 @@ src/
 - `master` 브랜치: 안정된 릴리즈 코드만 유지
 
 ### 워크플로우
+
+- 반드시 현재 브랜치를 먼저 확인
 
 1. 새 버전 작업 시작: `master`에서 `feature/{version}` 브랜치 생성
 2. 세부 작업은 `feature/{version}` 브랜치에서 하위 브랜치를 분기하여 진행
@@ -260,11 +264,11 @@ src/
 
 ### 사용 가능한 명령어
 
-| 명령어       | 사용법                     | 설명                                                                                                  |
-|--------------|----------------------------|-------------------------------------------------------------------------------------------------------|
-| `/create-pr` | `/create-pr {base브랜치}`  | 현재 브랜치에서 지정한 base 브랜치로 PR을 생성한다. `.github/PULL_REQUEST_TEMPLATE.md` 형식을 따른다. |
-| `/review-pr` | `/review-pr {PR번호}`      | PR에 달린 코드 리뷰 코멘트를 분석하고, 각 코멘트에 대해 동의/반박/수정 방안을 제시한다.               |
-| `/reply-review` | `/reply-review {PR번호}` | `/review-pr` 분석 결과를 기반으로 반박/검토 결과를 GitHub 코멘트로 작성한다. `/review-pr`이 선행되어야 한다. |
+| 명령어          | 사용법                    | 설명                                                                                                         |
+| --------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `/create-pr`    | `/create-pr {base브랜치}` | 현재 브랜치에서 지정한 base 브랜치로 PR을 생성한다. `.github/PULL_REQUEST_TEMPLATE.md` 형식을 따른다.        |
+| `/review-pr`    | `/review-pr {PR번호}`     | PR에 달린 코드 리뷰 코멘트를 분석하고, 각 코멘트에 대해 동의/반박/수정 방안을 제시한다.                      |
+| `/reply-review` | `/reply-review {PR번호}`  | `/review-pr` 분석 결과를 기반으로 반박/검토 결과를 GitHub 코멘트로 작성한다. `/review-pr`이 선행되어야 한다. |
 
 ### 명령어 관리 규칙
 
