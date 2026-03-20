@@ -1,11 +1,11 @@
 ---
-import CaseStudyLayout from '@/layouts/CaseStudyLayout.astro';
+import ArticleLayout from '@/layouts/ArticleLayout.astro';
 import { getCollection, render } from 'astro:content';
 import type { GetStaticPaths, InferGetStaticPropsType } from 'astro';
 
 export const getStaticPaths = (async () => {
-  const caseStudies = await getCollection('caseStudies');
-  return caseStudies.map((entry) => ({
+  const articles = await getCollection('articles');
+  return articles.map((entry) => ({
     params: { slug: entry.data.slug },
     props: { entry },
   }));
@@ -17,7 +17,7 @@ const { entry } = Astro.props as Props;
 const { Content } = await render(entry);
 ---
 
-<CaseStudyLayout title={`${entry.data.title} | 장선규`} description={entry.data.summary}>
+<ArticleLayout title={`${entry.data.title} | 장선규`} description={entry.data.summary}>
   <h1>{entry.data.title}</h1>
   <Content />
-</CaseStudyLayout>
+</ArticleLayout>

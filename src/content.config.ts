@@ -22,19 +22,16 @@ const career = defineCollection({
   }),
 });
 
-const caseStudies = defineCollection({
-  loader: glob({ pattern: '**/*.mdx', base: './src/content/case-studies' }),
+const articles = defineCollection({
+  loader: glob({ pattern: '**/*.mdx', base: './src/content/articles' }),
   schema: z.object({
     title: z.string(),
     slug: z.string(),
-    companySlug: z.string(),
     summary: z.string(),
-    problem: z.string(),
-    impact: z.string(),
-    period: z.string(),
     tags: z.array(z.string()),
     skills: z.array(z.string()),
     categories: z.array(z.string()),
+    publishedAt: z.coerce.date(),
     featured: z.boolean().default(false),
     published: z.boolean().default(true),
     order: z.number(),
@@ -81,4 +78,4 @@ const taxonomy = defineCollection({
   }),
 });
 
-export const collections = { career, caseStudies, sideProjects, taxonomy };
+export const collections = { career, articles, sideProjects, taxonomy };

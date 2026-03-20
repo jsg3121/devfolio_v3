@@ -1,16 +1,9 @@
 ---
 import { getAllCareers } from '@/lib/content/career';
-import { getFeaturedCaseStudies } from '@/lib/content/caseStudies';
-
 const careers = await getAllCareers();
-const caseStudies = await getFeaturedCaseStudies();
 
 const formatDate = (date: Date): string => {
   return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
-};
-
-const getCaseStudiesForCompany = (companySlug: string) => {
-  return caseStudies.filter((cs) => cs.data.companySlug === companySlug);
 };
 ---
 
@@ -28,7 +21,6 @@ const getCaseStudiesForCompany = (companySlug: string) => {
 
       <ol class="relative space-y-16 md:space-y-20">
         {careers.map((career) => {
-          const companyCases = getCaseStudiesForCompany(career.data.slug);
           return (
             <li class="timeline-item pl-12 md:pl-16">
               <!-- 타임라인 노드 -->
@@ -71,28 +63,6 @@ const getCaseStudiesForCompany = (companySlug: string) => {
                   ))}
                 </div>
 
-                <!-- 관련 케이스 스터디 -->
-                {companyCases.length > 0 && (
-                  <div class="mt-4 pt-4 border-t border-gray-100 dark:border-slate-800">
-                    <p class="text-xs font-medium text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-3">관련 케이스 스터디</p>
-                    <div class="space-y-2">
-                      {companyCases.map((cs) => (
-                        <a
-                          href={`/case-studies/${cs.data.slug}`}
-                          class="hover-arrow group flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
-                        >
-                          <div>
-                            <p class="text-sm font-medium text-gray-900 dark:text-slate-100 group-hover:text-gray-600 dark:group-hover:text-slate-300 transition-colors">{cs.data.title}</p>
-                            <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{cs.data.impact}</p>
-                          </div>
-                          <svg class="w-4 h-4 text-gray-300 dark:text-slate-600 arrow-icon shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-                          </svg>
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </article>
             </li>
           );
