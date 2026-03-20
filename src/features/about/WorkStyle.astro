@@ -28,20 +28,20 @@ const styles: StyleItem[] = [
 ];
 ---
 
-<section class="py-20 md:py-28 bg-gray-50">
+<section class="py-20 md:py-28 bg-gray-50 dark:bg-slate-800/50">
   <div class="max-w-5xl mx-auto px-6">
-    <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-12" data-reveal="up">
+    <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-12" data-reveal="up">
       How I Work
     </h2>
     <div class="grid md:grid-cols-2 gap-8">
       {styles.map((item, index) => (
         <article
-          class="p-6 bg-white rounded-xl border border-gray-100"
+          class="p-6 bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700"
           data-reveal="up"
           data-reveal-delay={String(index * 100)}
         >
-          <h3 class="text-base font-semibold text-gray-900 mb-2">{item.title}</h3>
-          <p class="text-sm text-gray-500 leading-relaxed">{item.description}</p>
+          <h3 class="text-base font-semibold text-gray-900 dark:text-slate-100 mb-2">{item.title}</h3>
+          <p class="text-sm text-gray-500 dark:text-slate-400 leading-relaxed">{item.description}</p>
         </article>
       ))}
     </div>

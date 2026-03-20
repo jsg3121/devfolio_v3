@@ -1,6 +1,9 @@
 @import 'tailwindcss';
 @import './tokens.css';
 
+/* Tailwind v4: dark variant를 class 기반으로 설정 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ===== 스크롤 등장 애니메이션 ===== */
 
 [data-reveal] {
@@ -50,6 +53,10 @@
 .hover-lift:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.08);
+}
+
+:where(.dark) .hover-lift:hover {
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
 }
 
 .hover-arrow {
