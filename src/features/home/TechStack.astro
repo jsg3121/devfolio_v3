@@ -1,0 +1,57 @@
+---
+import { Image } from 'astro:assets';
+
+import reactIcon from '@/assets/icons/react.svg';
+import nextjsIcon from '@/assets/icons/nextjs.svg';
+import typescriptIcon from '@/assets/icons/typescript.svg';
+import javascriptIcon from '@/assets/icons/javascript.svg';
+import htmlIcon from '@/assets/icons/html.svg';
+import cssIcon from '@/assets/icons/css.svg';
+import tailwindcssIcon from '@/assets/icons/tailwindcss.svg';
+import graphqlIcon from '@/assets/icons/graphql.svg';
+import nodeIcon from '@/assets/icons/node.svg';
+
+const TECH_ITEMS = [
+  { icon: reactIcon, label: 'React', darkInvert: false },
+  { icon: nextjsIcon, label: 'Next.js', darkInvert: true },
+  { icon: typescriptIcon, label: 'TypeScript', darkInvert: false },
+  { icon: javascriptIcon, label: 'JavaScript', darkInvert: false },
+  { icon: htmlIcon, label: 'HTML', darkInvert: false },
+  { icon: cssIcon, label: 'CSS', darkInvert: false },
+  { icon: tailwindcssIcon, label: 'Tailwind CSS', darkInvert: false },
+  { icon: graphqlIcon, label: 'GraphQL', darkInvert: false },
+  { icon: nodeIcon, label: 'Node.js', darkInvert: false },
+];
+---
+
+<section class="py-20 md:py-28">
+  <div class="max-w-5xl mx-auto px-6">
+    <h2
+      class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-12"
+      data-reveal="up"
+    >
+      Tech Stack
+    </h2>
+    <div class="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-8 md:gap-6">
+      {
+        TECH_ITEMS.map((item, index) => (
+          <div
+            class="flex flex-col items-center gap-3"
+            data-reveal="up"
+            data-reveal-delay={String(index * 50)}
+          >
+            <Image
+              src={item.icon}
+              alt={item.label}
+              class={`w-10 h-10 md:w-12 md:h-12${item.darkInvert ? ' dark:invert' : ''}`}
+              loading="lazy"
+            />
+            <span class="text-xs text-gray-600 dark:text-slate-400 text-center whitespace-nowrap">
+              {item.label}
+            </span>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
