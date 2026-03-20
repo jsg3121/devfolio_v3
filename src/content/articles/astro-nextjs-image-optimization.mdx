@@ -1,0 +1,274 @@
+---
+title: "Astro vs Next.js — 이미지 최적화는 어떻게 다를까"
+slug: "astro-nextjs-image-optimization"
+summary: "Astro의 빌드 타임 이미지 최적화와 Next.js의 런타임 이미지 최적화가 각각 어떻게 동작하는지 비교하고, 프로젝트 특성에 따른 선택 기준을 정리합니다."
+tags:
+  - "astro"
+  - "nextjs"
+  - "image-optimization"
+  - "performance"
+skills:
+  - "astro"
+  - "nextjs"
+categories:
+  - "web-performance"
+publishedAt: "2026-03-20"
+featured: true
+published: true
+order: 2
+seoTitle: "Astro vs Next.js 이미지 최적화 비교 — 빌드 타임 vs 런타임 방식의 차이"
+seoDescription: "Astro와 Next.js의 이미지 컴포넌트가 각각 빌드 타임과 런타임에서 어떻게 동작하는지 비교하고, 프로젝트에 맞는 선택 기준을 제시합니다."
+---
+
+## 들어가며
+
+웹에서 이미지는 전체 페이지 용량의 절반 이상을 차지하는 경우가 많다. 최적화되지 않은 이미지 하나가 LCP(Largest Contentful Paint)를 수백 밀리초 늦추고, `width`/`height` 없는 이미지가 CLS(Cumulative Layout Shift)를 유발한다.
+
+이런 문제를 프레임워크 레벨에서 해결하기 위해 Astro와 Next.js는 각각 이미지 컴포넌트를 제공한다. 둘 다 Sharp를 사용해 포맷 변환과 리사이즈를 처리하지만, **언제** 그 작업을 수행하는지가 근본적으로 다르다.
+
+## Astro — 빌드 타임에 완성하는 방식
+
+### 기본 동작
+
+Astro의 `<Image />` 컴포넌트는 `astro build` 시점에 이미지를 처리한다.
+
+```astro
+---
+import { Image } from 'astro:assets';
+import photo from '../assets/images/photo.png';
+---
+<Image src={photo} alt="프로필 사진" />
+```
+
+이 코드가 빌드를 거치면 다음과 같은 일이 일어난다.
+
+```
+빌드 시작
+│
+├─ Vite가 import된 이미지 감지
+│   └─ photo.png의 메타데이터 추출 (width, height, format)
+│
+├─ Sharp로 이미지 처리
+│   ├─ WebP로 포맷 변환
+│   ├─ 지정된 크기로 리사이즈
+│   └─ 품질 최적화
+│
+├─ 해시된 파일명으로 출력
+│   └─ /_astro/photo_Z1a2b3c.webp
+│
+└─ HTML에 완성된 <img> 태그 삽입
+    └─ <img src="/_astro/photo_Z1a2b3c.webp" width="800" height="600" alt="프로필 사진" loading="lazy" />
+```
+
+핵심은 **빌드가 끝나면 이미 최적화된 정적 파일이 완성**된다는 점이다. 배포 후에는 서버가 할 일이 없다. CDN에 올려두면 그대로 서빙된다.
+
+### 이미지 경로에 따른 차이
+
+Astro에서는 이미지를 어디에 두느냐에 따라 최적화 여부가 결정된다.
+
+```astro
+---
+import { Image } from 'astro:assets';
+import optimized from '../assets/images/photo.png';
+---
+
+<!-- src/assets/ 이미지: 최적화됨 -->
+<Image src={optimized} alt="최적화 대상" />
+
+<!-- public/ 이미지: 최적화 안 됨, 원본 그대로 서빙 -->
+<Image src="/images/photo.png" alt="정적 파일" width={800} height={600} />
+```
+
+`src/assets/`에서 import한 이미지는 Vite 파이프라인을 거쳐 메타데이터가 자동 추출된다. `width`, `height`를 직접 지정할 필요가 없다. 반면 `public/` 폴더의 이미지는 빌드 파이프라인을 거치지 않으므로 최적화되지 않고, `width`와 `height`를 수동으로 지정해야 한다.
+
+### `<Picture />` — 다중 포맷 폴백
+
+브라우저마다 지원하는 이미지 포맷이 다르다. AVIF는 압축률이 가장 좋지만 Safari 구버전에서는 지원하지 않는다. `<Picture />` 컴포넌트는 이 문제를 `<source>` 태그 체인으로 해결한다.
+
+```astro
+---
+import { Picture } from 'astro:assets';
+import photo from '../assets/images/photo.png';
+---
+<Picture src={photo} formats={['avif', 'webp']} alt="다중 포맷" />
+```
+
+빌드 결과:
+
+```html
+<picture>
+  <source srcset="/_astro/photo_abc.avif" type="image/avif" />
+  <source srcset="/_astro/photo_def.webp" type="image/webp" />
+  <img src="/_astro/photo_ghi.png" alt="다중 포맷" width="800" height="600" loading="lazy" />
+</picture>
+```
+
+브라우저는 위에서부터 지원하는 첫 번째 포맷을 선택한다. AVIF를 지원하면 AVIF, 아니면 WebP, 둘 다 안 되면 PNG로 폴백한다.
+
+### `getImage()` — 프로그래밍 방식
+
+컴포넌트가 아닌 코드에서 최적화된 이미지 URL이 필요할 때 사용한다. CSS `background-image`나 OG 이미지 등에 활용할 수 있다.
+
+```astro
+---
+import { getImage } from 'astro:assets';
+import bg from '../assets/images/bg.png';
+
+const optimizedBg = await getImage({ src: bg, format: 'webp', width: 1920 });
+---
+<div class="hero-bg" style={`background-image: url(${optimizedBg.src})`}></div>
+```
+
+## Next.js — 요청할 때 처리하는 방식
+
+### 기본 동작
+
+Next.js의 `<Image />` 컴포넌트는 빌드 시점에 이미지를 처리하지 않는다. 대신 클라이언트가 이미지를 요청할 때 서버에서 실시간으로 최적화한다.
+
+```tsx
+import Image from 'next/image';
+
+const Profile = () => (
+  <Image src="/photo.png" alt="프로필 사진" width={800} height={600} />
+);
+```
+
+이 코드가 렌더링되면 다음과 같은 흐름이 진행된다.
+
+```
+브라우저가 이미지 요청
+│
+├─ <img> 태그의 src가 /_next/image?url=/photo.png&w=828&q=75 로 변환됨
+│
+├─ Next.js 이미지 API 라우트가 요청 수신
+│   ├─ 원본 이미지 로드 (/public/photo.png)
+│   ├─ Accept 헤더 확인 → 브라우저가 WebP/AVIF 지원하는지 판단
+│   ├─ Sharp로 리사이즈 + 포맷 변환
+│   └─ 결과를 .next/cache/images/에 캐시
+│
+└─ 최적화된 이미지 응답
+    └─ 이후 동일 요청은 캐시에서 서빙 (minimumCacheTTL까지)
+```
+
+최초 요청 시에는 Sharp 처리 시간만큼 지연이 발생한다. 하지만 한 번 캐시되면 이후 요청은 빠르게 응답된다.
+
+### 반응형 srcset 자동 생성
+
+Next.js의 가장 큰 강점은 `sizes` prop 하나로 반응형 이미지를 자동 처리한다는 점이다.
+
+```tsx
+<Image
+  src="/photo.png"
+  alt="반응형"
+  fill
+  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+/>
+```
+
+이 코드는 `next.config.js`에 정의된 `deviceSizes`와 `imageSizes`를 조합해 `srcset`을 자동 생성한다.
+
+```html
+<img
+  srcset="
+    /_next/image?url=/photo.png&w=640&q=75 640w,
+    /_next/image?url=/photo.png&w=750&q=75 750w,
+    /_next/image?url=/photo.png&w=828&q=75 828w,
+    /_next/image?url=/photo.png&w=1080&q=75 1080w,
+    /_next/image?url=/photo.png&w=1200&q=75 1200w
+  "
+  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+/>
+```
+
+브라우저는 현재 뷰포트 너비와 DPR(Device Pixel Ratio)을 고려해 가장 적합한 크기를 선택한다. 모바일에서는 640w 이미지를, 데스크톱에서는 1200w 이미지를 받게 된다.
+
+반면 Astro의 `<Image />`는 이런 자동 srcset 생성이 없다. 반응형 이미지가 필요하면 `<Picture />`에 `widths` prop을 수동으로 지정하거나, `getImage()`로 직접 구성해야 한다.
+
+### Placeholder blur
+
+Next.js는 이미지 로딩 중 표시할 blur placeholder를 내장 지원한다.
+
+```tsx
+import photo from '../public/photo.png';
+
+// 정적 import — 빌드 시 저해상도 base64를 자동 생성
+<Image src={photo} alt="blur" placeholder="blur" />
+
+// 외부 이미지 — blurDataURL을 직접 제공
+<Image
+  src="https://example.com/photo.png"
+  alt="blur"
+  placeholder="blur"
+  blurDataURL="data:image/jpeg;base64,/9j/4AAQ..."
+  width={800}
+  height={600}
+/>
+```
+
+정적 import의 경우 빌드 시 자동으로 저해상도 이미지를 생성해 인라인 base64로 삽입한다. 사용자는 이미지가 로딩되는 동안 흐릿한 미리보기를 보게 되어 체감 로딩 속도가 개선된다.
+
+Astro에는 이 기능이 내장되어 있지 않다. 필요하다면 빌드 스크립트에서 저해상도 이미지를 직접 생성하거나, CSS `backdrop-filter` 등으로 유사하게 구현해야 한다.
+
+### 커스텀 로더
+
+기본적으로 Next.js는 자체 `/_next/image` API로 이미지를 처리하지만, 외부 이미지 CDN을 사용할 수도 있다.
+
+```tsx
+const cloudinaryLoader = ({ src, width, quality }: {
+  src: string;
+  width: number;
+  quality?: number;
+}) => {
+  return `https://res.cloudinary.com/demo/image/upload/w_${width},q_${quality || 'auto'}/${src}`;
+};
+
+<Image
+  loader={cloudinaryLoader}
+  src="photo.png"
+  alt="Cloudinary"
+  width={800}
+  height={600}
+/>
+```
+
+이 경우 `/_next/image` API를 거치지 않고 Cloudinary가 직접 이미지를 최적화한다. `next.config.js`에서 전역 로더를 설정하면 Node.js 서버 없이 정적 export에서도 이미지 최적화를 사용할 수 있다.
+
+## 비교
+
+| 항목 | Astro | Next.js |
+|------|-------|---------|
+| 최적화 시점 | 빌드 타임 | 런타임 (요청 시) |
+| 이미지 처리 엔진 | Sharp | Sharp |
+| 서버 필요 여부 | SSG면 불필요 | 필요 (또는 커스텀 로더로 우회) |
+| 출력 포맷 | 빌드 설정에 따라 고정 | Accept 헤더 기반 자동 선택 |
+| 반응형 srcset | 수동 구성 필요 | `sizes` prop으로 자동 생성 |
+| Placeholder blur | 미지원 (직접 구현) | 내장 지원 |
+| CLS 방지 | import 시 자동 추론 | `width`/`height` 필수 또는 `fill` |
+| 다중 포맷 폴백 | `<Picture />` 컴포넌트 | Accept 헤더 기반 자동 선택 |
+| 외부 이미지 | 빌드 시 fetch 후 최적화 | 런타임 프록시 |
+| 캐시 | 빌드 결과 = 캐시 | 파일시스템 + CDN 캐시 |
+| CDN 로더 | `getImage()` 커스텀 | 내장 로더 시스템 |
+
+## 어떤 프로젝트에 어떤 방식이 맞을까
+
+### Astro 방식이 적합한 경우
+
+- **정적 사이트**: 블로그, 포트폴리오, 문서 사이트처럼 이미지가 빌드 시점에 확정되는 경우
+- **서버리스 배포**: CDN에 정적 파일만 올리면 되므로 서버 비용이 없다
+- **예측 가능한 성능**: 빌드 시 처리가 끝나므로 런타임에 이미지 처리로 인한 지연이 없다
+- **이미지 변경 빈도가 낮은 경우**: 새 이미지를 추가하려면 재빌드가 필요하므로, 이미지가 자주 바뀌지 않는 프로젝트에 적합하다
+
+### Next.js 방식이 적합한 경우
+
+- **동적 콘텐츠**: 사용자 업로드 이미지, CMS에서 관리하는 이미지 등 빌드 시점에 알 수 없는 이미지가 많은 경우
+- **다양한 디바이스 대응**: srcset 자동 생성으로 모바일부터 4K 디스플레이까지 최적 크기를 자동 제공한다
+- **외부 이미지 프록시**: 서드파티 이미지를 자체 도메인으로 프록시하면서 최적화까지 처리할 수 있다
+- **점진적 최적화**: 이미 운영 중인 서비스에 이미지 최적화를 도입할 때, 재빌드 없이 적용할 수 있다
+
+## 정리
+
+Astro와 Next.js의 이미지 최적화는 같은 문제를 다른 시점에서 해결한다. Astro는 빌드할 때 모든 이미지를 미리 처리해두고, Next.js는 사용자가 요청할 때 그때그때 처리한다.
+
+어느 쪽이 더 낫다고 단정할 수는 없다. 이미지가 빌드 시점에 확정되는 정적 사이트라면 Astro의 빌드 타임 방식이 서버 비용 없이 예측 가능한 성능을 제공한다. 이미지가 동적으로 추가되거나 다양한 디바이스에 대응해야 하는 서비스라면 Next.js의 런타임 방식이 더 유연하다.
+
+결국 **이미지가 언제 확정되는가**와 **서버를 운영할 수 있는가**라는 두 가지 질문에 대한 답이 선택 기준이 된다.

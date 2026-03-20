@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     aria-label="JavaScript" role="img"
+     viewBox="0 0 512 512">
+  <defs>
+    <filter id="innershadow" x0="-50%" y0="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="10" result="blur"></feGaussianBlur>
+      <feOffset dy="-20" dx="-20"></feOffset>
+      <feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="shadowDiff"></feComposite>
+      
+      <feFlood flood-color="#444444" flood-opacity="0.6"></feFlood>
+      <feComposite in2="shadowDiff" operator="in"></feComposite>
+      <feComposite in2="SourceGraphic" operator="over" result="firstfilter"></feComposite>
+    </filter>
+  </defs>
+  <rect
+    filter="url(#innershadow)"
+    width="512" height="512"
+    rx="15%"
+    fill="#f7df1e"/>
+  <path d="M324 370c10 17 24 29 47 29c20 0 33-10 33 -24c0-16 -13 -22 -35 -32l-12-5c-35-15 -58 -33 -58 -72c0-36 27 -64 70 -64c31 0 53 11 68 39l-37 24c-8-15 -17 -21 -31 -21c-14 0-23 9 -23 21c0 14 9 20 30 29l12 5c41 18 64 35 64 76c0 43-34 67 -80 67c-45 0-74 -21 -88 -49zm-170 4c8 13 14 25 31 25c16 0 26-6 26 -30V203h48v164c0 50-29 72 -72 72c-39 0-61 -20 -72 -44z"/>
+</svg>
+
+
+      
+<!--           
+      <feGaussianBlur in="firstfilter" stdDeviation="3" result="blur2"></feGaussianBlur>
+			<feOffset dy="-2" dx="-3"></feOffset>
+			<feComposite in2="firstfilter" operator="arithmetic" k2="-1" k3="1" result="shadowDiff"></feComposite>
+			
+      <feFlood flood-color="#444444" flood-opacity="0.75"></feFlood>
+			<feComposite in2="shadowDiff" operator="in"></feComposite>
+			<feComposite in2="firstfilter" operator="over"></feComposite> -->
