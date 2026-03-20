@@ -55,6 +55,10 @@
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.08);
 }
 
+:where(.dark) .hover-lift:hover {
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
+}
+
 .hover-arrow {
   transition: transform 200ms ease;
 }

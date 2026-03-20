@@ -16,15 +16,15 @@ const getCaseStudiesForCompany = (companySlug: string) => {
 
 <section class="py-20 md:py-28">
   <div class="max-w-5xl mx-auto px-6">
-    <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-16" data-reveal="up">
+    <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-16" data-reveal="up">
       Career Timeline
     </h2>
 
     <div class="career-timeline relative">
       <!-- 타임라인 세로선 (배경) -->
-      <div class="timeline-track absolute left-4 md:left-6 top-0 bottom-0 w-px bg-gray-200" aria-hidden="true"></div>
+      <div class="timeline-track absolute left-4 md:left-6 top-0 bottom-0 w-px bg-gray-200 dark:bg-slate-700" aria-hidden="true"></div>
       <!-- 타임라인 세로선 (스크롤 진행) -->
-      <div class="timeline-progress absolute left-4 md:left-6 top-0 w-px bg-gray-900 origin-top" aria-hidden="true"></div>
+      <div class="timeline-progress absolute left-4 md:left-6 top-0 w-px bg-gray-900 dark:bg-slate-200 origin-top" aria-hidden="true"></div>
 
       <ol class="relative space-y-16 md:space-y-20">
         {careers.map((career) => {
@@ -32,33 +32,33 @@ const getCaseStudiesForCompany = (companySlug: string) => {
           return (
             <li class="timeline-item pl-12 md:pl-16">
               <!-- 타임라인 노드 -->
-              <div class="timeline-node absolute left-2.5 md:left-4 w-3 h-3 rounded-full border-2 border-gray-300 bg-white mt-2" />
+              <div class="timeline-node absolute left-2.5 md:left-4 w-3 h-3 rounded-full border-2 border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 mt-2" />
 
               <article>
                 <header class="mb-4">
                   <div class="flex flex-col md:flex-row md:items-baseline md:gap-4 mb-1">
-                    <h3 class="text-xl md:text-2xl font-semibold text-gray-900">
+                    <h3 class="text-xl md:text-2xl font-semibold text-gray-900 dark:text-slate-100">
                       {career.data.company}
                     </h3>
                     {career.data.isCurrent && (
-                      <span class="text-xs px-2 py-0.5 bg-gray-900 text-white rounded-full w-fit">현재</span>
+                      <span class="text-xs px-2 py-0.5 bg-gray-900 dark:bg-slate-200 text-white dark:text-slate-900 rounded-full w-fit">현재</span>
                     )}
                   </div>
-                  <p class="text-base text-gray-500">{career.data.role}</p>
-                  <p class="text-sm text-gray-400 mt-1">
+                  <p class="text-base text-gray-500 dark:text-slate-400">{career.data.role}</p>
+                  <p class="text-sm text-gray-400 dark:text-slate-500 mt-1">
                     {formatDate(career.data.startDate)} ~ {career.data.endDate ? formatDate(career.data.endDate) : '현재'}
                   </p>
                 </header>
 
-                <p class="text-base text-gray-600 leading-relaxed mb-5">
+                <p class="text-base text-gray-600 dark:text-slate-300 leading-relaxed mb-5">
                   {career.data.summary}
                 </p>
 
                 <!-- 주요 성과 -->
                 <ul class="space-y-1.5 mb-5">
                   {career.data.highlights.map((highlight: string) => (
-                    <li class="flex items-start gap-2 text-sm text-gray-600">
-                      <span class="text-gray-300 mt-0.5 shrink-0">—</span>
+                    <li class="flex items-start gap-2 text-sm text-gray-600 dark:text-slate-300">
+                      <span class="text-gray-300 dark:text-slate-600 mt-0.5 shrink-0">—</span>
                       <span>{highlight}</span>
                     </li>
                   ))}
@@ -67,25 +67,25 @@ const getCaseStudiesForCompany = (companySlug: string) => {
                 <!-- 기술 스택 -->
                 <div class="flex flex-wrap gap-1.5 mb-5">
                   {career.data.skills.map((skill: string) => (
-                    <span class="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">{skill}</span>
+                    <span class="text-xs px-2 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 rounded-full">{skill}</span>
                   ))}
                 </div>
 
                 <!-- 관련 케이스 스터디 -->
                 {companyCases.length > 0 && (
-                  <div class="mt-4 pt-4 border-t border-gray-100">
-                    <p class="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">관련 케이스 스터디</p>
+                  <div class="mt-4 pt-4 border-t border-gray-100 dark:border-slate-800">
+                    <p class="text-xs font-medium text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-3">관련 케이스 스터디</p>
                     <div class="space-y-2">
                       {companyCases.map((cs) => (
                         <a
                           href={`/case-studies/${cs.data.slug}`}
-                          class="hover-arrow group flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                          class="hover-arrow group flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
                         >
                           <div>
-                            <p class="text-sm font-medium text-gray-900 group-hover:text-gray-600 transition-colors">{cs.data.title}</p>
-                            <p class="text-xs text-gray-400 mt-0.5">{cs.data.impact}</p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-slate-100 group-hover:text-gray-600 dark:group-hover:text-slate-300 transition-colors">{cs.data.title}</p>
+                            <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{cs.data.impact}</p>
                           </div>
-                          <svg class="w-4 h-4 text-gray-300 arrow-icon shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <svg class="w-4 h-4 text-gray-300 dark:text-slate-600 arrow-icon shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
                           </svg>
                         </a>
@@ -167,13 +167,11 @@ const getCaseStudiesForCompany = (companySlug: string) => {
         trigger: node,
         start: 'top 80%',
         onEnter: () => {
-          node.classList.add('border-gray-900', 'bg-gray-900');
-          node.classList.remove('border-gray-300', 'bg-white');
+          node.classList.add('timeline-node-active');
         },
         onRefresh: (self) => {
           if (self.progress > 0) {
-            node.classList.add('border-gray-900', 'bg-gray-900');
-            node.classList.remove('border-gray-300', 'bg-white');
+            node.classList.add('timeline-node-active');
           }
         },
       });
@@ -193,5 +191,15 @@ const getCaseStudiesForCompany = (companySlug: string) => {
 
   .timeline-node {
     transition: border-color 0.3s ease, background-color 0.3s ease;
+  }
+
+  .timeline-node-active {
+    border-color: #111827;
+    background-color: #111827;
+  }
+
+  :global(.dark) .timeline-node-active {
+    border-color: #e2e8f0;
+    background-color: #e2e8f0;
   }
 </style>
