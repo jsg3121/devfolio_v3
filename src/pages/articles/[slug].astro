@@ -1,0 +1,63 @@
+---
+import ArticleLayout from '@/layouts/ArticleLayout.astro';
+import { getCollection, render } from 'astro:content';
+import type { GetStaticPaths, InferGetStaticPropsType } from 'astro';
+
+export const getStaticPaths = (async () => {
+  const articles = await getCollection('articles');
+  return articles.map((entry) => ({
+    params: { slug: entry.data.slug },
+    props: { entry },
+  }));
+}) satisfies GetStaticPaths;
+
+type Props = InferGetStaticPropsType<typeof getStaticPaths>;
+
+const { entry } = Astro.props as Props;
+const { Content } = await render(entry);
+
+const formatDate = (date: Date): string => {
+  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+};
+---
+
+<ArticleLayout title={`${entry.data.title} | 장선규`} description={entry.data.summary}>
+  <header class="article-header mb-12 md:mb-16">
+    <div class="flex flex-wrap gap-1.5 mb-4">
+      {
+        entry.data.categories.map((category: string) => (
+          <span class="text-xs px-2.5 py-1 bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 rounded-full">
+            {category}
+          </span>
+        ))
+      }
+    </div>
+    <h1
+      class="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-slate-100 tracking-tight mb-4 leading-tight"
+    >
+      {entry.data.title}
+    </h1>
+    <p class="text-lg text-gray-500 dark:text-slate-400 leading-relaxed mb-6">
+      {entry.data.summary}
+    </p>
+    <div class="flex flex-wrap items-center gap-4 text-sm text-gray-400 dark:text-slate-500">
+      <time datetime={entry.data.publishedAt.toISOString()}>
+        {formatDate(entry.data.publishedAt)}
+      </time>
+      <span class="hidden md:inline">·</span>
+      <div class="flex flex-wrap gap-1.5">
+        {
+          entry.data.tags.map((tag: string) => (
+            <span class="px-2 py-0.5 bg-gray-50 dark:bg-slate-800 text-gray-400 dark:text-slate-500 rounded text-xs">
+              {tag}
+            </span>
+          ))
+        }
+      </div>
+    </div>
+  </header>
+
+  <div class="article-divider h-px bg-gray-200 dark:bg-slate-700 mb-12 md:mb-16"></div>
+
+  <Content />
+</ArticleLayout>

@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import './tokens.css';
+@import './prose.css';
 
 /* Tailwind v4: dark variant를 class 기반으로 설정 */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -47,7 +48,9 @@
 /* ===== 공통 호버/인터랙션 ===== */
 
 .hover-lift {
-  transition: transform 200ms ease, box-shadow 200ms ease;
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease;
 }
 
 .hover-lift:hover {

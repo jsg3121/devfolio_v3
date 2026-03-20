@@ -25,8 +25,8 @@
 | 타깃 | 궁금해하는 정보 | 기대 흐름 |
 |------|----------------|----------|
 | 채용 담당자 | 경력 연차, 주요 회사, 대표 성과, 기술 스택 | Home → Work → Resume |
-| 실무 리더 | 문제 해결 방식, 설계 판단, 협업 방식 | Home → Case Studies → Work → Contact |
-| CTO / 테크 리드 | 비즈니스 임팩트, 기술 의사결정, 리딩 경험 | Work → Case Study → Side Projects |
+| 실무 리더 | 문제 해결 방식, 설계 판단, 협업 방식 | Home → Articles → Work → Contact |
+| CTO / 테크 리드 | 비즈니스 임팩트, 기술 의사결정, 리딩 경험 | Work → Articles → Side Projects |
 | 외부 협업자 | 어떤 영역의 프론트엔드 문제를 잘 해결하는지 | Home → Side Projects → Contact |
 
 ---
@@ -37,7 +37,7 @@
 |---------|------|----------|
 | 프레임워크 | **Astro** | 정적 사이트 최적, Content Collections 활용, 뛰어난 SEO |
 | 언어 | **TypeScript** | 타입 안정성, 콘텐츠 스키마 정의 |
-| 콘텐츠 | **MDX + Content Collections** | 케이스 스터디를 마크다운으로 관리, 메타데이터 구조화 |
+| 콘텐츠 | **MDX + Content Collections** | 아티클(기술 블로그)을 마크다운으로 관리, 메타데이터 구조화 |
 | 스타일링 | **Tailwind CSS v4** | 유틸리티 기반 빠른 UI 개발, Astro 공식 지원 |
 | 애니메이션 | **CSS + GSAP (최소)** | 필요한 구간만 인터랙션, 과도한 적용 지양 |
 | 폰트 | **Pretendard** | 한글 최적화 웹폰트 |
@@ -48,7 +48,7 @@
 - 정적 페이지 우선
 - 필요한 구간만 Astro Islands로 인터랙션 적용
 - 콘텐츠(데이터)와 UI 로직 분리
-- 케이스 스터디는 MDX 기반으로 관리
+- 아티클(기술 블로그)은 MDX 기반으로 관리
 
 ---
 
@@ -59,7 +59,7 @@
 ```
 /                          → Home (임팩트 요약)
 /work                      → Work (회사 경력 허브)
-/case-studies/[slug]       → Case Study 상세
+/articles/[slug]           → Article 상세
 /side-projects             → Side Projects
 /about                     → About + Resume + Contact 통합
 ```
@@ -68,7 +68,7 @@
 > - 싱글 페이지(스크롤) → 멀티 페이지 구조로 변경. 콘텐츠 양이 많아 페이지 분리가 적합.
 > - Highlights 섹션 → Home 내 핵심 지표 영역으로 흡수.
 > - Career 타임라인 → `/work` 독립 페이지로 승격. 섹션형 서술 구조 채택.
-> - Case Studies 추가 — 문제 해결 과정을 상세히 보여주는 핵심 콘텐츠.
+> - Articles 추가 — 기술적 경험과 인사이트를 공유하는 기술 블로그 콘텐츠.
 > - Resume, Contact → About 페이지 하단에 통합 (초기 MVP 기준).
 
 ---
@@ -81,10 +81,10 @@
 
 | 섹션 | 콘텐츠 |
 |------|--------|
-| Hero | 이름, 직함(7년차 프론트엔드 엔지니어), 한 줄 소개, CTA(`경력 보기`, `케이스 스터디 보기`) |
+| Hero | 이름, 직함(7년차 프론트엔드 엔지니어), 한 줄 소개, CTA(`경력 보기`, `아티클 보기`) |
 | 핵심 지표 | 총 경력 연차, 주요 도메인, 대표 성과 수치(CDN 3~4억 절감, HTML 로드 10배 등) |
 | 대표 경력 미리보기 | 현재 재직 회사 중심 2~3줄 요약 + 이전 경력 하이라이트 |
-| 대표 케이스 스터디 | 3개 카드 (SEO/CMS, 성능 최적화, 비용 절감/관측성) |
+| 대표 아티클 | 기술 블로그 글 카드 (최신 featured 아티클) |
 | 사이드 프로젝트 미리보기 | 운영 중인 개인 프로젝트 카드 (추후 추가) |
 | 연락/이력서 | 이메일, GitHub, PDF 다운로드 |
 
@@ -99,7 +99,7 @@
 |------|--------|
 | 페이지 소개 | 경력 전체 요약 + 강점 키워드 태그 |
 | 커리어 타임라인 | 회사명, 직무, 재직 기간, 담당 도메인을 시각적으로 표현 |
-| 회사별 상세 | 역할 → 주요 과제 → 대표 성과 → 관련 케이스 스터디 링크 |
+| 회사별 상세 | 역할 → 주요 과제 → 대표 성과 → 관련 아티클 링크 |
 | 역량 축 요약 | SEO/Growth, Performance, Platform/Admin, Infra/Observability, Leadership |
 
 **회사 목록 (시간순 역순):**
@@ -132,34 +132,26 @@
    - Toyota 브랜드 캠페인
    - Korea P&I 공식 사이트
 
-### 5.3 Case Studies (`/case-studies/[slug]`)
+### 5.3 Articles (`/articles/[slug]`)
 
-**목적:** 핵심 문제 해결 사례를 깊이 있게 보여주는 상세 페이지.
+**목적:** 개발 과정에서 겪은 기술적 경험과 인사이트를 기술 블로그 형식으로 공유하는 상세 페이지.
 
-**통일 템플릿:**
+**방향 전환 배경:**
+- 기존 "Case Studies"는 회사 프로젝트 문제 해결 사례를 다루는 구조였으나, 사내 민감 정보 노출 우려와 기술 정보 보안 이슈로 방향을 전환.
+- 회사 특정 프로젝트가 아닌, 범용적인 기술 주제를 다루는 기술 블로그 형식으로 변경.
 
-```
-1. 프로젝트 개요
-2. 배경 및 문제 정의
-3. 담당 역할
-4. 기술적 난점
-5. 해결 전략
-6. 구현 내용
-7. 성과 및 결과
-8. 회고 및 배운 점
-```
+**콘텐츠 방향:**
+- 개발 중 만난 기술적 이슈와 해결 과정
+- 프레임워크/라이브러리의 동작 원리 분석
+- 아키텍처 설계 판단과 트레이드오프
+- 성능 최적화, SEO, 인프라 관련 실전 경험
 
-**MVP 우선 작성 대상 (3개):**
+**초기 작성 대상:**
 
-| 케이스 | 문제 영역 | 핵심 성과 |
-|--------|----------|----------|
-| SEO 통합 관리 CMS 구축 | SEO / Growth | 검색 스니펫 상위 노출, 부서 간 협업 개선 |
-| 웹 성능 최적화 및 레거시 리팩토링 | Performance | HTML 로드 10배, 페이지 로드 58% 단축, Lighthouse 45% 향상 |
-| CDN 이관 및 인프라 비용 절감 | Infra / Cost | 연 3~4억 CDN 비용 절감, 월 67만 원 서버 비용 절감 |
-
-**후순위 케이스:**
-- 관측성 환경 구축 및 장애 대응 체계 개선
-- 자기소개서 관리 플랫폼 UX 고도화
+| 아티클 | 주제 영역 |
+|--------|----------|
+| Astro에서 script와 script is:inline의 차이 | Astro, JavaScript, Rendering |
+| Tailwind CSS와 커스텀 CSS가 충돌할 때 | CSS, Tailwind, GSAP |
 
 ### 5.4 Side Projects (`/side-projects`)
 
@@ -218,17 +210,18 @@ Astro Content Collections + MDX 기반으로 관리.
   order: number
 }
 
-// case-study (MDX)
+// article (MDX)
 {
   title: string
   slug: string
-  company: string
-  category: string      // SEO, Performance, Infra 등
-  tags: string[]
   summary: string
-  impact: string        // 핵심 성과 한 줄
+  tags: string[]
+  skills: string[]
+  categories: string[]
+  publishedAt: string   // 게시일
   published: boolean
   featured: boolean
+  order: number
 }
 
 // side-project
@@ -254,8 +247,8 @@ src/
 ├── pages/
 │   ├── index.astro                 # Home
 │   ├── work.astro                  # Work (경력 허브)
-│   ├── case-studies/
-│   │   └── [slug].astro            # Case Study 상세 (동적 라우팅)
+│   ├── articles/
+│   │   └── [slug].astro            # Article 상세 (동적 라우팅)
 │   ├── side-projects.astro         # Side Projects
 │   └── about.astro                 # About + Resume + Contact
 ├── components/
@@ -263,14 +256,14 @@ src/
 │   │   ├── Hero.astro
 │   │   ├── KeyMetrics.astro        # 핵심 지표 요약
 │   │   ├── FeaturedWork.astro      # 대표 경력 미리보기
-│   │   ├── FeaturedCases.astro     # 대표 케이스 스터디 카드
+│   │   ├── FeaturedArticles.astro  # 대표 아티클 카드
 │   │   └── ContactCTA.astro
 │   ├── work/
 │   │   ├── CareerTimeline.astro    # 커리어 타임라인
 │   │   ├── CompanySection.astro    # 회사별 상세 섹션
 │   │   └── SkillSummary.astro      # 역량 축 요약
-│   ├── case-study/
-│   │   └── CaseStudyLayout.astro   # 케이스 스터디 통일 템플릿
+│   ├── article/
+│   │   └── ArticleLayout.astro     # 아티클 읽기형 템플릿
 │   └── common/
 │       ├── Header.astro
 │       ├── Footer.astro
@@ -278,7 +271,7 @@ src/
 │       └── SEO.astro               # 구조화 데이터 (JSON-LD)
 ├── content/
 │   ├── career/                     # 회사별 경력 데이터
-│   ├── case-studies/               # MDX 케이스 스터디
+│   ├── articles/                   # MDX 아티클 (기술 블로그)
 │   └── side-projects/              # 사이드 프로젝트 데이터
 └── styles/
     └── global.css
@@ -295,7 +288,7 @@ src/
 - `sitemap.xml` 자동 생성
 - `robots.txt`
 - 구조화 데이터: `Person`, `WebSite`, `WebPage`, `BreadcrumbList`
-- 케이스 스터디의 명확한 헤딩 구조 (h1 → h2 → h3)
+- 아티클의 명확한 헤딩 구조 (h1 → h2 → h3)
 
 ---
 
@@ -309,7 +302,7 @@ src/
 |--------|--------|
 | Home | 임팩트 중심 요약, 큰 숫자 강조 |
 | Work | 문서형 섹션 구조, 타임라인 |
-| Case Study | 긴 글 읽기에 적합한 레이아웃 (블로그 포스트 느낌) |
+| Article | 긴 글 읽기에 적합한 레이아웃 (기술 블로그 느낌) |
 | Side Projects | 가벼운 카드 그리드 |
 | About | 단정한 프로필 페이지 |
 
@@ -321,13 +314,13 @@ src/
 
 - [ ] Home (Hero + 핵심 지표 + 대표 경력 + 케이스 스터디 카드 + CTA)
 - [ ] Work (커리어 타임라인 + 회사별 섹션형 서술)
-- [ ] Case Study 상세 3개 (SEO CMS, 성능 최적화, 비용 절감)
+- [ ] Articles (기술 블로그 글 작성 및 상세 페이지)
 - [ ] Side Projects (카드 목록 — 콘텐츠 추후 추가)
 - [ ] About (소개 + Resume PDF + Contact)
 
 ### 제외 (후순위)
 
-- 블로그 / 글 아카이브
+- 아티클 검색/필터 기능
 - 다국어 지원
 - 복잡한 검색/필터/태그 탐색
 - 과도한 애니메이션
@@ -343,21 +336,21 @@ src/
 - 공통 레이아웃 및 네비게이션
 - Home 페이지
 - Work 페이지 (경력 데이터 구조화)
-- Case Study 3개 (MDX)
+- Articles 페이지 (기술 블로그)
 - About 페이지
 - SEO 기본 적용 (meta, sitemap, JSON-LD)
 - 배포
 
 ### 2단계
 
-- 케이스 스터디 추가
+- 아티클 추가 작성
 - 사이드 프로젝트 콘텐츠 추가
 - 역량 축별 요약 UI
 - 태그 시스템 도입
 
 ### 3단계
 
-- 글 아카이브 / 기술 노트
+- 아티클 태그별 분류/필터
 - 발표 자료 정리
 - 인터랙션 고도화 (GSAP)
 - 영문 버전 검토
@@ -370,8 +363,8 @@ src/
 |------|---------------|-----------------|
 | 페이지 구조 | 싱글 페이지 (스크롤) | **멀티 페이지** (콘텐츠 양 고려) |
 | 경력 표현 | 타임라인 + 아코디언 | **섹션형 서술** (성과 중심) |
-| Case Studies | 없음 | **독립 상세 페이지 3개** (MVP 핵심) |
+| Articles | 없음 | **기술 블로그 형식의 독립 상세 페이지** |
 | Highlights | 별도 섹션 | Home 내 **핵심 지표 영역**으로 흡수 |
 | Resume / Contact | 별도 섹션 | **About 페이지에 통합** |
 | 콘텐츠 관리 | `data/career.ts` 단일 파일 | **Content Collections + MDX** |
-| 정보 설계 | 기능 중심 | **사용자 흐름 + 문제 해결 중심** |
+| 정보 설계 | 기능 중심 | **사용자 흐름 + 기술 인사이트 중심** |

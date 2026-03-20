@@ -1,0 +1,170 @@
+---
+title: "Astro에서 script와 script is:inline의 차이"
+slug: "astro-script-behavior"
+summary: "Astro의 두 가지 스크립트 선언 방식이 브라우저 렌더링 과정에서 어떻게 다르게 동작하는지, 그리고 View Transitions 환경에서 각각을 언제 사용해야 하는지 정리합니다."
+tags:
+  - "astro"
+  - "javascript"
+  - "view-transitions"
+  - "rendering"
+skills:
+  - "astro"
+  - "typescript"
+categories:
+  - "astro"
+publishedAt: "2026-03-20"
+featured: true
+published: true
+order: 1
+seoTitle: "Astro script vs script is:inline — 동작 방식 차이와 사용 기준"
+seoDescription: "Astro의 두 가지 스크립트 방식이 브라우저 렌더링에서 어떻게 동작하는지, View Transitions에서의 주의점과 함께 정리합니다."
+---
+
+## 들어가며
+
+Astro에서 클라이언트 스크립트를 작성하는 방법은 두 가지다. `<script>`와 `<script is:inline>`. 겉보기엔 비슷해 보이지만, 빌드 과정과 브라우저에서의 실행 타이밍이 완전히 다르다.
+
+이 글에서는 두 방식의 차이를 브라우저 렌더링 흐름 기준으로 설명하고, View Transitions 환경에서 각각을 언제 사용해야 하는지 정리한다.
+
+## 두 방식의 핵심 차이
+
+### `<script>` — 기본 방식
+
+Astro의 기본 `<script>` 태그는 빌드 시 다음과 같이 처리된다.
+
+- Vite를 통해 **번들링·최적화**된다
+- `import` 구문을 사용할 수 있다
+- `<script type="module">`로 변환되어 **`<body>` 하단에 삽입**된다
+- 같은 컴포넌트를 여러 번 사용해도 **한 번만** 포함된다
+- View Transitions 페이지 전환 시 **재실행되지 않는다**
+
+```astro
+<!-- 컴포넌트 내에서 -->
+<script>
+  import { gsap } from 'gsap';
+  // import 사용 가능, Vite가 번들링
+  gsap.to('.box', { x: 100 });
+</script>
+```
+
+### `<script is:inline>` — 인라인 방식
+
+`is:inline` 디렉티브를 추가하면 Astro가 스크립트를 **가공하지 않고 그대로** HTML에 삽입한다.
+
+- 번들링/최적화 **없음**
+- `import` 구문 사용 **불가**
+- 작성한 위치에 **그대로** 렌더링된다
+- 같은 컴포넌트를 여러 번 사용하면 **중복 포함**된다
+- View Transitions 시에도 **재실행되지 않는다** (이미 실행된 스크립트는 유지)
+
+```astro
+<head>
+  <script is:inline>
+    // 번들링 없이 이 위치에 그대로 삽입
+    // import 사용 불가
+    console.log('head에서 즉시 실행');
+  </script>
+</head>
+```
+
+## 브라우저 렌더링 흐름에서의 차이
+
+두 방식의 핵심 차이는 **실행 타이밍**이다. 브라우저가 HTML을 파싱하는 순서를 따라가보면 명확해진다.
+
+```
+HTML 파싱 시작
+│
+├─ <head> 파싱
+│   ├─ <meta>, <title>, <link> 처리
+│   ├─ <script is:inline>    ← ❶ 파싱을 멈추고 즉시 실행
+│   │   └─ 실행 완료 후 파싱 재개
+│   └─ <head> 파싱 완료
+│
+├─ <body> 파싱 + 렌더링 시작
+│   ├─ DOM 요소들을 순서대로 생성
+│   │   └─ ❶에서 적용한 상태가 이미 반영된 채로 렌더링
+│   │
+│   └─ <script type="module">    ← ❷ DOM 파싱 완료 후 실행
+│       └─ Astro 기본 script가 여기에 삽입됨
+│
+└─ DOMContentLoaded 발생
+```
+
+`type="module"`은 브라우저에서 자동으로 `defer`와 동일하게 동작한다. 즉, DOM 파싱이 전부 끝난 뒤에 실행된다.
+
+## 실전 사례: 다크모드 깜빡임 방지
+
+이 차이가 가장 명확하게 드러나는 사례가 **다크모드 초기화**다.
+
+### 기본 script로 작성한 경우 (문제 발생)
+
+```
+<head> 파싱 → <body> 렌더링 (라이트 모드) → script 실행 → dark 클래스 추가 → 리페인트
+```
+
+사용자에게는 **흰 화면이 잠깐 보였다가 어두워지는 깜빡임**(FOUC, Flash of Unstyled Content)이 발생한다.
+
+### is:inline으로 작성한 경우 (해결)
+
+```astro
+<head>
+  <script is:inline>
+    const theme = localStorage.getItem('theme');
+    if (theme === 'dark' || (!theme && matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
+  </script>
+</head>
+```
+
+```
+<head> 파싱 → is:inline 실행 (dark 클래스 추가) → <body> 렌더링 (처음부터 다크)
+```
+
+`<body>`가 렌더링되기 전에 이미 `dark` 클래스가 적용되어 있으므로 깜빡임이 없다.
+
+## View Transitions에서의 주의점
+
+Astro의 View Transitions(`ClientRouter`)를 사용하면 페이지 전환 시 DOM이 swap된다. 이때 두 방식 모두 **재실행되지 않는다**는 점이 중요하다.
+
+### 기본 script
+
+모듈 스크립트는 최초 한 번만 실행된다. 페이지 전환 후 재초기화가 필요하면 `astro:page-load` 이벤트를 사용한다.
+
+```typescript
+// astro:page-load는 초기 로드와 View Transitions 전환 모두에서 발생
+document.addEventListener('astro:page-load', () => {
+  initScrollReveal();
+});
+```
+
+### is:inline
+
+`is:inline` 스크립트도 재실행되지 않지만, `<head>` 안에서 이벤트 리스너를 등록해두면 swap 후에도 동작한다.
+
+```javascript
+// 최초 로드 시 즉시 실행 + swap 후에도 테마 복원
+const applyTheme = () => {
+  const theme = localStorage.getItem('theme');
+  if (theme === 'dark' || (!theme && matchMedia('(prefers-color-scheme: dark)').matches)) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+};
+applyTheme();
+document.addEventListener('astro:after-swap', applyTheme);
+```
+
+`astro:after-swap`는 새 DOM이 swap된 직후, 렌더링 전에 발생하는 이벤트다. 이 시점에 `dark` 클래스를 복원하면 전환 시에도 깜빡임이 없다.
+
+## 정리: 언제 어떤 방식을 사용하는가
+
+| 상황 | 방식 | 이유 |
+|------|------|------|
+| 렌더링 전에 실행되어야 하는 코드 (테마, 폰트 등) | `is:inline` | `<head>`에서 즉시 실행 |
+| 외부 라이브러리를 import해야 할 때 | 기본 `<script>` | 번들링 필요 |
+| DOM 조작, 이벤트 바인딩 | 기본 `<script>` | DOM 파싱 완료 후 안전하게 실행 |
+| 번들 크기에 포함시키고 싶지 않은 간단한 코드 | `is:inline` | 번들링 우회 |
+
+핵심 원칙은 단순하다. **"렌더링 전이냐, 후냐."** 이 기준으로 판단하면 대부분의 경우 올바른 선택을 할 수 있다.
