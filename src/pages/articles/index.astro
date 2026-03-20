@@ -1,11 +1,29 @@
 ---
 import PageLayout from '@/layouts/PageLayout.astro';
 import ArticleList from '@/features/articles/ArticleList.astro';
+import { SITE } from '@/lib/constants/site';
+import { buildWebPageJsonLd, buildBreadcrumbJsonLd } from '@/lib/seo/jsonld';
+import { buildCanonicalUrl } from '@/lib/seo/meta';
+
+const title = 'Articles | 장선규';
+const description = '개발 과정에서 겪은 기술적 경험과 인사이트를 정리합니다.';
 ---
 
 <PageLayout
-  title="Articles | 장선규"
-  description="개발 과정에서 겪은 기술적 경험과 인사이트를 정리합니다."
+  title={title}
+  description={description}
+  ogImage="/og/articles.png"
+  jsonLd={[
+    buildWebPageJsonLd({
+      title,
+      description,
+      url: buildCanonicalUrl('/articles'),
+    }),
+    buildBreadcrumbJsonLd([
+      { name: 'Home', url: SITE.url },
+      { name: 'Articles', url: buildCanonicalUrl('/articles') },
+    ]),
+  ]}
 >
   <ArticleList />
 </PageLayout>

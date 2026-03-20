@@ -2,16 +2,16 @@
 import BaseLayout from './BaseLayout.astro';
 import Header from '@/components/layout/Header.astro';
 import Footer from '@/components/layout/Footer.astro';
+import type { MetaProps } from '@/lib/seo/meta';
 
-interface Props {
-  title: string;
-  description: string;
+interface Props extends MetaProps {
+  jsonLd?: string[];
 }
 
-const { title, description } = Astro.props;
+const { ...seoProps } = Astro.props;
 ---
 
-<BaseLayout title={title} description={description}>
+<BaseLayout {...seoProps}>
   <Header />
   <main>
     <slot />
