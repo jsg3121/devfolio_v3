@@ -43,10 +43,7 @@ const initScrollReveal = () => {
   });
 };
 
-// 초기 실행
-initScrollReveal();
-
-// View Transitions로 페이지 전환 시 재초기화
+// View Transitions 페이지 전환 및 초기 로드 시 실행
 document.addEventListener('astro:page-load', () => {
   initScrollReveal();
 });
