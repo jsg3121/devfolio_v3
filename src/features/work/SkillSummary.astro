@@ -1,0 +1,63 @@
+---
+interface SkillAxis {
+  title: string;
+  description: string;
+  examples: string[];
+}
+
+const skillAxes: SkillAxis[] = [
+  {
+    title: 'SEO / Growth',
+    description: '검색 유입과 서비스 성장을 연결하는 기술적 SEO 전략',
+    examples: ['SEO 통합 CMS 구축', '테크니컬 SEO 전략', '검색 스니펫 최적화'],
+  },
+  {
+    title: 'Performance',
+    description: '사용자 경험과 비즈니스 지표를 개선하는 웹 성능 최적화',
+    examples: ['HTML 로드 10배 개선', 'Lighthouse 45% 향상', '페이지 로드 58% 단축'],
+  },
+  {
+    title: 'Platform / Admin',
+    description: '복잡한 비즈니스 로직을 다루는 관리 시스템 설계·개발',
+    examples: ['OTA 관리 시스템', '멘토 서비스', '자기소개서 관리 플랫폼'],
+  },
+  {
+    title: 'Infra / Observability',
+    description: '안정적 운영을 위한 인프라 최적화와 모니터링 체계 구축',
+    examples: ['CDN 이관 (연 3~4억 절감)', 'AWS 최적화', 'Grafana/Loki 관측성'],
+  },
+  {
+    title: 'Leadership',
+    description: '팀 리딩, 코드 리뷰, 기술 의사결정',
+    examples: ['프론트엔드 파트 리딩', '기술 의사결정', '주니어 멘토링'],
+  },
+];
+---
+
+<section class="py-20 md:py-28 bg-gray-50">
+  <div class="max-w-5xl mx-auto px-6">
+    <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-12" data-reveal="up">
+      Competency
+    </h2>
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {skillAxes.map((axis, index) => (
+        <article
+          class="p-6 bg-white rounded-xl border border-gray-100"
+          data-reveal="up"
+          data-reveal-delay={String(index * 80)}
+        >
+          <h3 class="text-base font-semibold text-gray-900 mb-2">{axis.title}</h3>
+          <p class="text-sm text-gray-500 leading-relaxed mb-4">{axis.description}</p>
+          <ul class="space-y-1">
+            {axis.examples.map((example) => (
+              <li class="flex items-start gap-2 text-xs text-gray-400">
+                <span class="mt-0.5 shrink-0">·</span>
+                <span>{example}</span>
+              </li>
+            ))}
+          </ul>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>

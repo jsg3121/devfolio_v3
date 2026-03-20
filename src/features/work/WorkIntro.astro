@@ -1,0 +1,19 @@
+---
+const strengthTags = ['SEO / Growth', 'Performance', 'Platform / Admin', 'Infra / Observability', 'Leadership'];
+---
+
+<section class="py-20 md:py-28">
+  <div class="max-w-5xl mx-auto px-6">
+    <h1 class="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-gray-900 mb-6" data-reveal="up">
+      Work
+    </h1>
+    <p class="text-lg md:text-xl text-gray-600 leading-relaxed max-w-2xl mb-8" data-reveal="up" data-reveal-delay="100">
+      단순 UI 구현을 넘어, 서비스 성장과 운영 효율까지 연결하는 문제 해결에 집중해 왔습니다.
+    </p>
+    <div class="flex flex-wrap gap-2" data-reveal="up" data-reveal-delay="200">
+      {strengthTags.map((tag) => (
+        <span class="text-sm px-3 py-1.5 bg-gray-100 text-gray-600 rounded-full">{tag}</span>
+      ))}
+    </div>
+  </div>
+</section>
