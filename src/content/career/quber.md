@@ -19,7 +19,7 @@ skills:
 domains:
   - 'platform'
 featured: false
-order: 3
+order: 4
 ---
 
 ## 2020.11 ~ 2023.06 · 연구원
