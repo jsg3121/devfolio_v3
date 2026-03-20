@@ -1,7 +1,14 @@
 ---
 import PageLayout from '@/layouts/PageLayout.astro';
+import AboutIntro from '@/features/about/AboutIntro.astro';
+import WorkStyle from '@/features/about/WorkStyle.astro';
+import TechStack from '@/features/about/TechStack.astro';
+import ResumeContact from '@/features/about/ResumeContact.astro';
 ---
 
-<PageLayout title="About | 장선규" description="장선규 소개, 이력서, 연락처">
-  <h1>About</h1>
+<PageLayout title="About | 장선규" description="7년차 프론트엔드 엔지니어 장선규 소개. 일하는 방식, 기술 스택, 이력서 다운로드, 연락처.">
+  <AboutIntro />
+  <WorkStyle />
+  <TechStack />
+  <ResumeContact />
 </PageLayout>

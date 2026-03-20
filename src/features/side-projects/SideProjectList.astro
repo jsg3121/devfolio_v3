@@ -1,0 +1,78 @@
+---
+import { getAllSideProjects } from '@/lib/content/sideProjects';
+
+const projects = await getAllSideProjects();
+
+const statusLabel: Record<string, { text: string; className: string }> = {
+  active: { text: 'Active', className: 'bg-green-100 text-green-700' },
+  paused: { text: 'Paused', className: 'bg-yellow-100 text-yellow-700' },
+  archived: { text: 'Archived', className: 'bg-gray-100 text-gray-500' },
+};
+---
+
+<section class="py-20 md:py-28">
+  <div class="max-w-5xl mx-auto px-6">
+    <h1 class="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-gray-900 mb-4" data-reveal="up">
+      Side Projects
+    </h1>
+    <p class="text-lg text-gray-500 mb-12 max-w-2xl" data-reveal="up" data-reveal-delay="100">
+      업무 외 시간에 관심 있는 문제를 탐구하고, 새로운 기술을 실험하는 프로젝트들입니다.
+    </p>
+
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {projects.map((project, index) => {
+        const status = statusLabel[project.data.status];
+        return (
+          <article
+            class="hover-lift group flex flex-col p-6 bg-white rounded-xl border border-gray-100"
+            data-reveal="up"
+            data-reveal-delay={String(index * 80)}
+          >
+            <header class="mb-4">
+              <div class="flex items-center justify-between mb-3">
+                <span class:list={['text-xs px-2 py-0.5 rounded-full font-medium', status.className]}>
+                  {status.text}
+                </span>
+              </div>
+              <h2 class="text-lg font-semibold text-gray-900 mb-1">{project.data.title}</h2>
+              <p class="text-sm text-gray-500 leading-relaxed">{project.data.summary}</p>
+            </header>
+
+            <p class="text-sm text-gray-400 leading-relaxed mb-4 flex-1">
+              {project.data.description}
+            </p>
+
+            <div class="flex flex-wrap gap-1.5 mb-4">
+              {project.data.skills.map((skill: string) => (
+                <span class="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">{skill}</span>
+              ))}
+            </div>
+
+            <footer class="flex items-center gap-4 pt-4 border-t border-gray-50">
+              {project.data.repositoryUrl && (
+                <a
+                  href={project.data.repositoryUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-xs text-gray-400 hover:text-gray-900 transition-colors"
+                >
+                  GitHub
+                </a>
+              )}
+              {project.data.projectUrl && (
+                <a
+                  href={project.data.projectUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-xs text-gray-400 hover:text-gray-900 transition-colors"
+                >
+                  Live
+                </a>
+              )}
+            </footer>
+          </article>
+        );
+      })}
+    </div>
+  </div>
+</section>

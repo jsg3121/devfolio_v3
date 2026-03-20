@@ -1,0 +1,49 @@
+---
+interface StackGroup {
+  category: string;
+  items: string[];
+}
+
+const stacks: StackGroup[] = [
+  {
+    category: 'Core',
+    items: ['TypeScript', 'React', 'Next.js', 'JavaScript'],
+  },
+  {
+    category: 'Styling',
+    items: ['Tailwind CSS', 'CSS', 'Sass'],
+  },
+  {
+    category: 'Data & API',
+    items: ['GraphQL', 'REST API'],
+  },
+  {
+    category: 'Infra & Tooling',
+    items: ['AWS', 'Grafana', 'Loki', 'Webpack', 'Vite'],
+  },
+  {
+    category: 'Etc',
+    items: ['Vue', 'Astro', 'Storybook', 'D3.js'],
+  },
+];
+---
+
+<section class="py-20 md:py-28">
+  <div class="max-w-5xl mx-auto px-6">
+    <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-12" data-reveal="up">
+      Tech Stack
+    </h2>
+    <div class="space-y-8">
+      {stacks.map((group, index) => (
+        <div data-reveal="up" data-reveal-delay={String(index * 80)}>
+          <h3 class="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">{group.category}</h3>
+          <div class="flex flex-wrap gap-2">
+            {group.items.map((item) => (
+              <span class="text-sm px-3 py-1.5 bg-gray-100 text-gray-700 rounded-full">{item}</span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
