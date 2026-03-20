@@ -1,0 +1,22 @@
+{
+  "items": [
+    { "id": "react", "label": "React" },
+    { "id": "nextjs", "label": "Next.js" },
+    { "id": "typescript", "label": "TypeScript" },
+    { "id": "javascript", "label": "JavaScript" },
+    { "id": "html", "label": "HTML" },
+    { "id": "css", "label": "CSS" },
+    { "id": "tailwind", "label": "Tailwind CSS" },
+    { "id": "graphql", "label": "GraphQL" },
+    { "id": "aws", "label": "AWS" },
+    { "id": "grafana", "label": "Grafana" },
+    { "id": "loki", "label": "Loki" },
+    { "id": "vue", "label": "Vue.js" },
+    { "id": "jquery", "label": "jQuery" },
+    { "id": "sass", "label": "Sass" },
+    { "id": "webpack", "label": "Webpack" },
+    { "id": "storybook", "label": "Storybook" },
+    { "id": "d3", "label": "D3.js" },
+    { "id": "recharts", "label": "Recharts" }
+  ]
+}
