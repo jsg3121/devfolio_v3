@@ -1,16 +1,107 @@
 ---
 import { NAV_ITEMS } from '@/lib/constants/navigation';
+
+const currentPath = Astro.url.pathname;
+
+const isActive = (href: string): boolean => {
+  if (href === '/') return currentPath === '/';
+  return currentPath.startsWith(href);
+};
 ---
 
-<nav>
-  <a href="/">장선규</a>
-  <ul>
+<nav class="flex items-center justify-between w-full" aria-label="메인 내비게이션">
+  <a
+    href="/"
+    class="text-base font-semibold text-gray-900 hover:text-gray-600 transition-colors"
+    transition:name="site-logo"
+  >
+    장선규
+  </a>
+
+  <!-- 데스크톱 메뉴 -->
+  <ul class="hidden md:flex items-center gap-8">
     {
       NAV_ITEMS.map((item) => (
         <li>
-          <a href={item.href}>{item.label}</a>
+          <a
+            href={item.href}
+            class:list={[
+              'text-sm transition-colors',
+              isActive(item.href)
+                ? 'text-gray-900 font-medium'
+                : 'text-gray-500 hover:text-gray-900',
+            ]}
+            aria-current={isActive(item.href) ? 'page' : undefined}
+          >
+            {item.label}
+          </a>
         </li>
       ))
     }
   </ul>
+
+  <!-- 모바일 햄버거 버튼 -->
+  <button
+    type="button"
+    class="mobile-menu-toggle md:hidden flex flex-col justify-center items-center w-8 h-8 gap-1.5"
+    aria-label="메뉴 열기"
+    aria-expanded="false"
+  >
+    <span class="menu-bar block w-5 h-px bg-gray-900 transition-all duration-200"></span>
+    <span class="menu-bar block w-5 h-px bg-gray-900 transition-all duration-200"></span>
+  </button>
 </nav>
+
+<!-- 모바일 메뉴 패널 -->
+<div class="mobile-menu hidden md:hidden" aria-hidden="true">
+  <ul class="flex flex-col gap-1 pt-4 pb-2">
+    {
+      NAV_ITEMS.map((item) => (
+        <li>
+          <a
+            href={item.href}
+            class:list={[
+              'block py-2.5 text-sm transition-colors',
+              isActive(item.href)
+                ? 'text-gray-900 font-medium'
+                : 'text-gray-500 hover:text-gray-900',
+            ]}
+            aria-current={isActive(item.href) ? 'page' : undefined}
+          >
+            {item.label}
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</div>
+
+<script>
+  const initMobileMenu = () => {
+    const toggle = document.querySelector('.mobile-menu-toggle');
+    const menu = document.querySelector('.mobile-menu');
+    const bars = document.querySelectorAll('.menu-bar');
+
+    if (!toggle || !menu) return;
+
+    toggle.addEventListener('click', () => {
+      const isOpen = menu.classList.contains('hidden');
+
+      menu.classList.toggle('hidden');
+      toggle.setAttribute('aria-expanded', String(isOpen));
+      toggle.setAttribute('aria-label', isOpen ? '메뉴 닫기' : '메뉴 열기');
+      menu.setAttribute('aria-hidden', String(!isOpen));
+
+      // 햄버거 → X 전환
+      if (isOpen) {
+        bars[0]?.classList.add('translate-y-[4px]', 'rotate-45');
+        bars[1]?.classList.add('-translate-y-[4px]', '-rotate-45');
+      } else {
+        bars[0]?.classList.remove('translate-y-[4px]', 'rotate-45');
+        bars[1]?.classList.remove('-translate-y-[4px]', '-rotate-45');
+      }
+    });
+  };
+
+  document.addEventListener('astro:page-load', initMobileMenu);
+</script>

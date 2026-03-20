@@ -1,7 +1,37 @@
 ---
 const currentYear = new Date().getFullYear();
+
+const footerLinks = [
+  { label: 'GitHub', href: 'https://github.com/jsg3121', external: true },
+  { label: 'Email', href: 'mailto:xodm95@gmail.com', external: false },
+];
 ---
 
-<footer>
-  <p>&copy; {currentYear} 장선규</p>
+<footer class="border-t border-gray-100">
+  <div class="max-w-5xl mx-auto px-6 py-12">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+      <div>
+        <p class="text-sm font-medium text-gray-900 mb-1">장선규</p>
+        <p class="text-xs text-gray-400">Frontend Engineer</p>
+      </div>
+      <nav aria-label="푸터 링크">
+        <ul class="flex items-center gap-6">
+          {
+            footerLinks.map((link) => (
+              <li>
+                <a
+                  href={link.href}
+                  class="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+                  {...(link.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                >
+                  {link.label}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </nav>
+    </div>
+    <p class="text-xs text-gray-300 mt-8">&copy; {currentYear} 장선규. All rights reserved.</p>
+  </div>
 </footer>

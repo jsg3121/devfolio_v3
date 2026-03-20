@@ -1,2 +1,79 @@
 @import 'tailwindcss';
 @import './tokens.css';
+
+/* ===== 스크롤 등장 애니메이션 ===== */
+
+[data-reveal] {
+  opacity: 0;
+  will-change: opacity, transform;
+  transition-property: opacity, transform;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-reveal] {
+  transition-duration: var(--reveal-duration, 600ms);
+}
+
+/* 방향별 초기 상태 */
+[data-reveal='up'] {
+  transform: translateY(30px);
+}
+
+[data-reveal='down'] {
+  transform: translateY(-30px);
+}
+
+[data-reveal='left'] {
+  transform: translateX(30px);
+}
+
+[data-reveal='right'] {
+  transform: translateX(-30px);
+}
+
+[data-reveal='fade'] {
+  transform: none;
+}
+
+/* 등장 완료 상태 */
+[data-reveal].revealed {
+  opacity: 1;
+  transform: translateY(0) translateX(0);
+}
+
+/* ===== 공통 호버/인터랙션 ===== */
+
+.hover-lift {
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.08);
+}
+
+.hover-arrow {
+  transition: transform 200ms ease;
+}
+
+.hover-arrow:hover .arrow-icon {
+  transform: translateX(4px);
+}
+
+.arrow-icon {
+  transition: transform 200ms ease;
+}
+
+/* ===== 모션 감소 설정 존중 ===== */
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .hover-lift:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}

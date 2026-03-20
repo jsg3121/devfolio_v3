@@ -1,0 +1,43 @@
+---
+import { getFeaturedCaseStudies } from '@/lib/content/caseStudies';
+
+const caseStudies = await getFeaturedCaseStudies();
+---
+
+<section class="py-20 md:py-28 bg-gray-50">
+  <div class="max-w-5xl mx-auto px-6">
+    <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-12" data-reveal="up">
+      Case Studies
+    </h2>
+    <div class="grid md:grid-cols-3 gap-6">
+      {caseStudies.map((study, index) => (
+        <a
+          href={`/case-studies/${study.data.slug}`}
+          class="hover-lift group block bg-white rounded-xl p-6 border border-gray-100"
+          data-reveal="up"
+          data-reveal-delay={String(index * 100)}
+          transition:name={`case-study-card-${study.data.slug}`}
+        >
+          <div class="flex flex-wrap gap-1.5 mb-4">
+            {study.data.categories.map((category: string) => (
+              <span class="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">{category}</span>
+            ))}
+          </div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-2 group-hover:text-gray-600 transition-colors">
+            {study.data.title}
+          </h3>
+          <p class="text-sm text-gray-500 leading-relaxed mb-4">
+            {study.data.summary}
+          </p>
+          <p class="text-sm font-medium text-gray-900">{study.data.impact}</p>
+          <div class="mt-4 flex items-center gap-1 text-sm text-gray-400 group-hover:text-gray-600 transition-colors">
+            <span>자세히 보기</span>
+            <svg class="w-3.5 h-3.5 arrow-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </a>
+      ))}
+    </div>
+  </div>
+</section>

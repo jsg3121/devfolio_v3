@@ -2,6 +2,12 @@
 import Navigation from './Navigation.astro';
 ---
 
-<header>
-  <Navigation />
+<header
+  class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100"
+  transition:name="site-header"
+  transition:animate="none"
+>
+  <div class="max-w-5xl mx-auto px-6 py-4">
+    <Navigation />
+  </div>
 </header>

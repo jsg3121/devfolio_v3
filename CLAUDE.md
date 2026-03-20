@@ -61,10 +61,22 @@ function getFullName(first: string, last: string): string {
 ```astro
 <!-- Good -->
 <div class="flex items-center gap-4 text-gray-900">
-
-<!-- Bad -->
-<div style="display: flex; align-items: center; gap: 16px; color: #111;">
+  <!-- Bad -->
+  <div style="display: flex; align-items: center; gap: 16px; color: #111;"></div>
+</div>
 ```
+
+### 반응형 디자인
+
+- **모바일 퍼스트** 원칙으로 작성한다. 기본 스타일이 모바일, `md:` / `lg:` 로 확장한다.
+- 브레이크포인트: `md` (768px), `lg` (1024px) 두 단계를 기본으로 사용한다.
+- 콘텐츠 최대 너비: `max-w-5xl` (1024px)을 표준으로 사용한다.
+
+### 시맨틱 HTML
+
+- 페이지 구조에 시맨틱 태그를 사용한다: `<header>`, `<nav>`, `<main>`, `<section>`, `<article>`, `<footer>`.
+- 각 `<section>`에는 헤딩 태그(`h2`, `h3` 등)를 반드시 포함한다.
+- `<div>`는 스타일링 목적의 래퍼로만 사용하고, 의미 있는 영역에는 시맨틱 태그를 우선 사용한다.
 
 ### 네이밍
 
@@ -197,6 +209,8 @@ src/
 
 ## 브랜치 전략
 
+- 모든 작업 시작 전 현재 브랜치를 확인하고, 아래 브랜치 전략 규칙을 준수한다.
+
 ### 버전 관리
 
 - **Semantic Versioning**을 따른다: `MAJOR.MINOR.PATCH`
@@ -216,11 +230,13 @@ src/
 
 ### 워크플로우
 
-1. 새 버전 작업 시작: `master`에서 `feature/{version}` 브랜치 생성
-2. 세부 작업은 `feature/{version}` 브랜치에서 하위 브랜치를 분기하여 진행
-3. 하위 작업 완료 시 `feature/{version}`으로 PR & 머지
-4. 버전의 모든 작업 완료 시 `feature/{version}` → `master`로 릴리즈 PR & 머지
-5. 머지 후 `master`에 버전 태그 생성 (예: `v0.1.0`)
+1. 현재 브랜치를 확인
+2. `master` 브랜치라면 신규 버전 브랜치 생성 확인 요청
+3. 새 버전 작업 시작: `master`에서 `feature/{version}` 브랜치 생성
+4. 세부 작업은 `feature/{version}` 브랜치에서 하위 브랜치를 분기하여 진행
+5. 하위 작업 완료 시 `feature/{version}`으로 PR & 머지
+6. 버전의 모든 작업 완료 시 `feature/{version}` → `master`로 릴리즈 PR & 머지
+7. 머지 후 `master`에 버전 태그 생성 (예: `v0.1.0`)
 
 ### 적용 범위
 
@@ -260,11 +276,11 @@ src/
 
 ### 사용 가능한 명령어
 
-| 명령어       | 사용법                     | 설명                                                                                                  |
-|--------------|----------------------------|-------------------------------------------------------------------------------------------------------|
-| `/create-pr` | `/create-pr {base브랜치}`  | 현재 브랜치에서 지정한 base 브랜치로 PR을 생성한다. `.github/PULL_REQUEST_TEMPLATE.md` 형식을 따른다. |
-| `/review-pr` | `/review-pr {PR번호}`      | PR에 달린 코드 리뷰 코멘트를 분석하고, 각 코멘트에 대해 동의/반박/수정 방안을 제시한다.               |
-| `/reply-review` | `/reply-review {PR번호}` | `/review-pr` 분석 결과를 기반으로 반박/검토 결과를 GitHub 코멘트로 작성한다. `/review-pr`이 선행되어야 한다. |
+| 명령어          | 사용법                    | 설명                                                                                                         |
+| --------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `/create-pr`    | `/create-pr {base브랜치}` | 현재 브랜치에서 지정한 base 브랜치로 PR을 생성한다. `.github/PULL_REQUEST_TEMPLATE.md` 형식을 따른다.        |
+| `/review-pr`    | `/review-pr {PR번호}`     | PR에 달린 코드 리뷰 코멘트를 분석하고, 각 코멘트에 대해 동의/반박/수정 방안을 제시한다.                      |
+| `/reply-review` | `/reply-review {PR번호}`  | `/review-pr` 분석 결과를 기반으로 반박/검토 결과를 GitHub 코멘트로 작성한다. `/review-pr`이 선행되어야 한다. |
 
 ### 명령어 관리 규칙
 

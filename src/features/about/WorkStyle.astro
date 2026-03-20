@@ -1,0 +1,49 @@
+---
+interface StyleItem {
+  title: string;
+  description: string;
+}
+
+const styles: StyleItem[] = [
+  {
+    title: '문제 정의부터 시작합니다',
+    description:
+      '기능 요청을 그대로 구현하기보다, 왜 필요한지 먼저 파악합니다. 문제를 명확히 정의하면 더 적은 코드로 더 큰 효과를 낼 수 있습니다.',
+  },
+  {
+    title: '숫자로 이야기합니다',
+    description:
+      '성능 개선, 비용 절감, SEO 유입 — 모든 작업의 결과를 정량적으로 측정하고 공유합니다. 감에 의존하지 않습니다.',
+  },
+  {
+    title: '경계를 넘어 협업합니다',
+    description:
+      '프론트엔드에 한정하지 않고, 인프라·백엔드·마케팅 팀과 직접 소통하며 문제를 해결합니다. 사일로를 만들지 않습니다.',
+  },
+  {
+    title: '운영까지 책임집니다',
+    description:
+      '배포 후 끝이 아닙니다. 모니터링 환경을 구축하고, 장애를 감지하고, 지속적으로 개선합니다.',
+  },
+];
+---
+
+<section class="py-20 md:py-28 bg-gray-50">
+  <div class="max-w-5xl mx-auto px-6">
+    <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-12" data-reveal="up">
+      How I Work
+    </h2>
+    <div class="grid md:grid-cols-2 gap-8">
+      {styles.map((item, index) => (
+        <article
+          class="p-6 bg-white rounded-xl border border-gray-100"
+          data-reveal="up"
+          data-reveal-delay={String(index * 100)}
+        >
+          <h3 class="text-base font-semibold text-gray-900 mb-2">{item.title}</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">{item.description}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
