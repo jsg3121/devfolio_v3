@@ -1,1 +1,51 @@
-/* 디자인 토큰: 디자인 확정 후 실제 값으로 교체 */
+/* ===== 디자인 토큰 ===== */
+
+:root {
+  /* 배경 */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f9fafb; /* gray-50 */
+  --color-bg-card: #ffffff;
+  --color-bg-elevated: #ffffff;
+
+  /* 텍스트 */
+  --color-text-primary: #111827; /* gray-900 */
+  --color-text-secondary: #6b7280; /* gray-500 */
+  --color-text-tertiary: #9ca3af; /* gray-400 */
+  --color-text-muted: #d1d5db; /* gray-300 */
+
+  /* 보더 */
+  --color-border-primary: #f3f4f6; /* gray-100 */
+  --color-border-secondary: #e5e7eb; /* gray-200 */
+
+  /* 인터랙션 */
+  --color-tag-bg: #f3f4f6; /* gray-100 */
+  --color-tag-text: #6b7280; /* gray-500 */
+  --color-btn-primary-bg: #111827; /* gray-900 */
+  --color-btn-primary-text: #ffffff;
+  --color-btn-primary-hover: #1f2937; /* gray-800 */
+}
+
+.dark {
+  /* 배경 */
+  --color-bg-primary: #0f172a; /* slate-900 */
+  --color-bg-secondary: #1e293b; /* slate-800 */
+  --color-bg-card: #1e293b; /* slate-800 */
+  --color-bg-elevated: #334155; /* slate-700 */
+
+  /* 텍스트 */
+  --color-text-primary: #f1f5f9; /* slate-100 */
+  --color-text-secondary: #94a3b8; /* slate-400 */
+  --color-text-tertiary: #64748b; /* slate-500 */
+  --color-text-muted: #475569; /* slate-600 */
+
+  /* 보더 */
+  --color-border-primary: #1e293b; /* slate-800 */
+  --color-border-secondary: #334155; /* slate-700 */
+
+  /* 인터랙션 */
+  --color-tag-bg: #334155; /* slate-700 */
+  --color-tag-text: #94a3b8; /* slate-400 */
+  --color-btn-primary-bg: #e2e8f0; /* slate-200 */
+  --color-btn-primary-text: #0f172a; /* slate-900 */
+  --color-btn-primary-hover: #cbd5e1; /* slate-300 */
+}

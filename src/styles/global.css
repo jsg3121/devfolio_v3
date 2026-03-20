@@ -1,6 +1,9 @@
 @import 'tailwindcss';
 @import './tokens.css';
 
+/* Tailwind v4: dark variant를 class 기반으로 설정 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ===== 스크롤 등장 애니메이션 ===== */
 
 [data-reveal] {
