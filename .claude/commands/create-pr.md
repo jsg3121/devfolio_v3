@@ -12,8 +12,9 @@ Pull Request를 생성해줘.
 3. 변경된 파일 목록 확인 (`git diff {base}...HEAD --stat`)
 4. 원격 브랜치 푸시 상태 확인 — 푸시되지 않은 커밋이 있으면 사용자에게 알리고 푸시 여부를 확인
 5. `.github/PULL_REQUEST_TEMPLATE.md` 템플릿을 읽고 해당 형식에 맞춰 PR 본문을 작성
-6. `gh pr create --base {base} --head {현재 브랜치} --title "{제목}" --body "{본문}"` 으로 PR 생성
-7. 생성된 PR URL을 사용자에게 전달
+6. 커밋 히스토리와 변경 파일을 분석하여 작업 유형에 해당하는 GitHub Label을 결정
+7. `gh pr create --base {base} --head {현재 브랜치} --title "{제목}" --body "{본문}" --label "{라벨1}" --label "{라벨2}"` 으로 PR 생성
+8. 생성된 PR URL을 사용자에게 전달
 
 ## PR 제목 규칙
 
@@ -25,6 +26,25 @@ Pull Request를 생성해줘.
 - `.github/PULL_REQUEST_TEMPLATE.md` 템플릿 형식을 반드시 따른다
 - 커밋 히스토리와 변경된 파일을 분석하여 작업 유형 체크박스를 선택한다
 - 작업 사항은 변경 내용을 카테고리별로 그룹핑하여 상세히 작성한다
+
+## Label 규칙
+
+- PR 본문의 작업 유형 체크박스에서 체크된 항목에 대응하는 GitHub Label을 `--label` 옵션으로 지정한다
+- 작업 유형과 라벨의 매핑:
+
+| 작업 유형 | Label |
+|-----------|-------|
+| ✨ 새 기능 (New Feature) | `feature` |
+| 🐛 버그 수정 (Bug Fix) | `bug` |
+| 🚨 핫픽스 (Hotfix) | `hotfix` |
+| 🔧 리팩토링 (Refactoring) | `refactor` |
+| 🚀 성능 개선 (Performance) | `performance` |
+| 🔍 SEO 개선 (SEO) | `seo` |
+| 🎨 디자인 변경 (Design) | `design` |
+| 📝 문서 (Documentation) | `documentation` |
+| 🔨 Breaking Changes | `breaking-change` |
+
+- 여러 유형에 해당하면 `--label`을 복수로 지정한다
 
 ## 주의사항
 
