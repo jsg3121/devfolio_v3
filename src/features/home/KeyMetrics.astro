@@ -96,6 +96,5 @@ const metrics: Metric[] = [
     elements.forEach((el) => observer.observe(el));
   };
 
-  initCountUp();
   document.addEventListener('astro:page-load', initCountUp);
 </script>
