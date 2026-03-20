@@ -47,7 +47,9 @@
 /* ===== 공통 호버/인터랙션 ===== */
 
 .hover-lift {
-  transition: transform 200ms ease, box-shadow 200ms ease;
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease;
 }
 
 .hover-lift:hover {

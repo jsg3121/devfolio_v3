@@ -21,7 +21,7 @@ const { title, description } = Astro.props;
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <ClientRouter />
     <script is:inline>
-      ((() => {
+      (() => {
         const applyTheme = () => {
           const theme = localStorage.getItem('theme');
           if (theme === 'dark' || (!theme && matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -32,10 +32,12 @@ const { title, description } = Astro.props;
         };
         applyTheme();
         document.addEventListener('astro:after-swap', applyTheme);
-      })());
+      })();
     </script>
   </head>
-  <body class="bg-white dark:bg-slate-900 text-gray-900 dark:text-slate-100 transition-colors duration-200">
+  <body
+    class="bg-white dark:bg-slate-900 text-gray-900 dark:text-slate-100 transition-colors duration-200"
+  >
     <slot />
     <script>
       import '@/lib/utils/scrollReveal';
