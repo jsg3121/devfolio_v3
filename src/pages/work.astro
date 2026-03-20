@@ -3,11 +3,30 @@ import PageLayout from '@/layouts/PageLayout.astro';
 import WorkIntro from '@/features/work/WorkIntro.astro';
 import CareerTimeline from '@/features/work/CareerTimeline.astro';
 import SkillSummary from '@/features/work/SkillSummary.astro';
+import { SITE } from '@/lib/constants/site';
+import { buildWebPageJsonLd, buildBreadcrumbJsonLd } from '@/lib/seo/jsonld';
+import { buildCanonicalUrl } from '@/lib/seo/meta';
+
+const title = 'Work | 장선규';
+const description =
+  '7년차 프론트엔드 엔지니어 장선규의 경력. 서비스 성장, 성능 최적화, SEO, 인프라까지 폭넓은 문제 해결 경험.';
 ---
 
 <PageLayout
-  title="Work | 장선규"
-  description="7년차 프론트엔드 엔지니어 장선규의 경력. 서비스 성장, 성능 최적화, SEO, 인프라까지 폭넓은 문제 해결 경험."
+  title={title}
+  description={description}
+  ogImage="/og/work.png"
+  jsonLd={[
+    buildWebPageJsonLd({
+      title,
+      description,
+      url: buildCanonicalUrl('/work'),
+    }),
+    buildBreadcrumbJsonLd([
+      { name: 'Home', url: SITE.url },
+      { name: 'Work', url: buildCanonicalUrl('/work') },
+    ]),
+  ]}
 >
   <WorkIntro />
   <CareerTimeline />

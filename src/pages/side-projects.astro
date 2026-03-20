@@ -1,11 +1,29 @@
 ---
 import PageLayout from '@/layouts/PageLayout.astro';
 import SideProjectList from '@/features/side-projects/SideProjectList.astro';
+import { SITE } from '@/lib/constants/site';
+import { buildWebPageJsonLd, buildBreadcrumbJsonLd } from '@/lib/seo/jsonld';
+import { buildCanonicalUrl } from '@/lib/seo/meta';
+
+const title = 'Side Projects | 장선규';
+const description =
+  '업무 외 시간에 관심 있는 문제를 탐구하고 새로운 기술을 실험하는 사이드 프로젝트 목록.';
 ---
 
 <PageLayout
-  title="Side Projects | 장선규"
-  description="업무 외 시간에 관심 있는 문제를 탐구하고 새로운 기술을 실험하는 사이드 프로젝트 목록."
+  title={title}
+  description={description}
+  jsonLd={[
+    buildWebPageJsonLd({
+      title,
+      description,
+      url: buildCanonicalUrl('/side-projects'),
+    }),
+    buildBreadcrumbJsonLd([
+      { name: 'Home', url: SITE.url },
+      { name: 'Side Projects', url: buildCanonicalUrl('/side-projects') },
+    ]),
+  ]}
 >
   <SideProjectList />
 </PageLayout>

@@ -2,6 +2,9 @@
 import ArticleLayout from '@/layouts/ArticleLayout.astro';
 import { getCollection, render } from 'astro:content';
 import type { GetStaticPaths, InferGetStaticPropsType } from 'astro';
+import { SITE } from '@/lib/constants/site';
+import { buildArticleJsonLd, buildBreadcrumbJsonLd } from '@/lib/seo/jsonld';
+import { buildCanonicalUrl } from '@/lib/seo/meta';
 
 export const getStaticPaths = (async () => {
   const articles = await getCollection('articles');
@@ -16,12 +19,35 @@ type Props = InferGetStaticPropsType<typeof getStaticPaths>;
 const { entry } = Astro.props as Props;
 const { Content } = await render(entry);
 
+const articleUrl = buildCanonicalUrl(`/articles/${entry.data.slug}`);
+
 const formatDate = (date: Date): string => {
   return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
 };
 ---
 
-<ArticleLayout title={`${entry.data.title} | 장선규`} description={entry.data.summary}>
+<ArticleLayout
+  title={`${entry.data.title} | 장선규`}
+  description={entry.data.summary}
+  ogType="article"
+  canonicalUrl={articleUrl}
+  publishedAt={entry.data.publishedAt}
+  tags={entry.data.tags}
+  jsonLd={[
+    buildArticleJsonLd({
+      title: entry.data.title,
+      description: entry.data.summary,
+      url: articleUrl,
+      publishedAt: entry.data.publishedAt,
+      tags: entry.data.tags,
+    }),
+    buildBreadcrumbJsonLd([
+      { name: 'Home', url: SITE.url },
+      { name: 'Articles', url: buildCanonicalUrl('/articles') },
+      { name: entry.data.title, url: articleUrl },
+    ]),
+  ]}
+>
   <header class="article-header mb-12 md:mb-16">
     <div class="flex flex-wrap gap-1.5 mb-4">
       {

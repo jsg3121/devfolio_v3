@@ -4,11 +4,29 @@ import AboutIntro from '@/features/about/AboutIntro.astro';
 import WorkStyle from '@/features/about/WorkStyle.astro';
 import TechStack from '@/features/about/TechStack.astro';
 import ResumeContact from '@/features/about/ResumeContact.astro';
+import { SITE } from '@/lib/constants/site';
+import { buildWebPageJsonLd, buildBreadcrumbJsonLd } from '@/lib/seo/jsonld';
+import { buildCanonicalUrl } from '@/lib/seo/meta';
+
+const title = 'About | 장선규';
+const description =
+  '7년차 프론트엔드 엔지니어 장선규 소개. 일하는 방식, 기술 스택, 이력서 다운로드, 연락처.';
 ---
 
 <PageLayout
-  title="About | 장선규"
-  description="7년차 프론트엔드 엔지니어 장선규 소개. 일하는 방식, 기술 스택, 이력서 다운로드, 연락처."
+  title={title}
+  description={description}
+  jsonLd={[
+    buildWebPageJsonLd({
+      title,
+      description,
+      url: buildCanonicalUrl('/about'),
+    }),
+    buildBreadcrumbJsonLd([
+      { name: 'Home', url: SITE.url },
+      { name: 'About', url: buildCanonicalUrl('/about') },
+    ]),
+  ]}
 >
   <AboutIntro />
   <WorkStyle />
