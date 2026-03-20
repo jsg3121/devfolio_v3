@@ -1,0 +1,37 @@
+---
+title: "Pokemon Dogam"
+slug: "pokemon-dogam"
+status: "archived"
+summary: "포켓몬 정보를 탐색하고 필터링할 수 있는 도감 서비스"
+description: "React + TypeScript + GraphQL 기반의 포켓몬 도감 웹 서비스. MobX 상태 관리, react-virtuoso 가상화 렌더링, Prisma ORM, Docusaurus 문서 사이트 운영까지 포함한 풀스택 프로젝트."
+tags: ["web-app", "fullstack", "documentation"]
+skills: ["react", "typescript", "graphql", "prisma", "mobx", "docusaurus"]
+featured: true
+startedAt: "2022-12-01"
+updatedAt: "2023-04-30"
+repositoryUrl: ["https://github.com/jsg3121/pokemon"]
+order: 1
+---
+
+## 프로젝트 소개
+
+새로운 기술을 배우기보다, 이미 사용하고 있던 기술들의 숙련도를 끌어올리기 위해 시작한 프로젝트입니다. 기존 REST API 대신 GraphQL을 도입해 클라이언트-서버 간 데이터 통신을 경험했고, 실제 사용자를 상정한 배포·문서화·피드백 수집까지 운영형 프로젝트로 확장했습니다.
+
+## 주요 구현
+
+- **GraphQL 기반 데이터 통신**: 기존 axios/REST 방식 대신 GraphQL을 사용해 필요한 데이터만 선택적으로 요청하는 구조 설계
+- **MobX 상태 관리**: 필터 조건(타입, 세대, 메가진화, 전설 여부 등)을 MobX Store로 관리하여 조건 변경 시 즉시 반영
+- **Debounce Hook 직접 구현**: 검색어 입력 중 불필요한 API 요청을 줄이기 위해 debounce 로직을 커스텀 훅으로 구현
+- **react-virtuoso 가상화 렌더링**: 1,000개 이상의 카드 데이터를 한 번에 렌더링하지 않고, 뷰포트 영역만 렌더링하는 최적화 적용
+- **Docusaurus 문서 사이트 운영**: 업데이트 내역, 이용 방법, 기술 이슈 해결 과정을 별도 블로그 형식 문서 페이지로 운영
+- **커뮤니티 배포 및 피드백 수집**: 온라인 커뮤니티에 홍보 후 사용자 피드백을 수집하고, 이슈 사항과 개선 사항을 반영하며 지속적으로 업데이트
+
+## 배운 점
+
+- GraphQL의 쿼리 설계와 스키마 정의를 통해 클라이언트 주도의 데이터 요청 패턴을 이해했습니다.
+- 대량 데이터의 렌더링 최적화(lazy loading, 가상화)를 직접 적용하며 성능 병목을 해결하는 경험을 쌓았습니다.
+- 단순 개발을 넘어 문서화, 배포, 사용자 피드백 루프까지 "운영 가능한 제품"을 만드는 관점을 갖게 되었습니다.
+
+## 지금 돌아보면
+
+당시에는 debounce hook을 직접 구현하고 react-virtuoso로 렌더링을 최적화하는 것에 만족했지만, 지금이라면 비즈니스 로직과 UI 로직을 더 명확히 분리하고 서버 사이드 캐싱 전략을 추가해 네트워크 요청 자체를 줄이는 방향으로 접근할 것입니다. 이 프로젝트에서 경험한 문서화·운영·피드백 수집 사이클은, 이후 실무에서 CMS 구축과 서비스 안정성 관리에 직접적으로 이어졌습니다.

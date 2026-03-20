@@ -55,7 +55,7 @@ const sideProjects = defineCollection({
     featured: z.boolean().default(false),
     startedAt: z.coerce.date(),
     updatedAt: z.coerce.date().optional(),
-    repositoryUrl: z.string().optional(),
+    repositoryUrl: z.array(z.string()).optional(),
     projectUrl: z.string().optional(),
     coverImage: z.string().optional(),
     coverAlt: z.string().optional(),
