@@ -24,7 +24,7 @@ const TECH_ITEMS = [
 ];
 ---
 
-<section class="py-20 md:py-28">
+<section class="py-20 md:py-28 bg-gray-50 dark:bg-slate-800/50">
   <div class="max-w-5xl mx-auto px-6">
     <h2
       class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-12"
@@ -43,7 +43,7 @@ const TECH_ITEMS = [
             <Image
               src={item.icon}
               alt={item.label}
-              class={`w-10 h-10 md:w-12 md:h-12${item.darkInvert ? ' dark:invert' : ''}`}
+              class={`w-12 h-12${item.darkInvert ? ' dark:invert' : ''}`}
               loading="lazy"
             />
             <span class="text-xs text-gray-600 dark:text-slate-400 text-center whitespace-nowrap">

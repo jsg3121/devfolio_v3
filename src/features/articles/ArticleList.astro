@@ -22,7 +22,7 @@ const articles = await getAllArticles();
         articles.map((article, index) => (
           <a
             href={`/articles/${article.data.slug}`}
-            class="hover-lift group block bg-white dark:bg-slate-800 rounded-xl p-6 md:p-8 border border-gray-100 dark:border-slate-700"
+            class="hover-lift group block bg-white dark:bg-slate-800 rounded-xl p-6 md:p-8 border border-gray-200 dark:border-slate-700"
             data-reveal="up"
             data-reveal-delay={String(index * 100)}
           >
