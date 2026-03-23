@@ -105,8 +105,7 @@ const hasMultiple = images.length > 1;
         class="lightbox-close absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
         aria-label="닫기"
       >
-        <Image src={closeLight} alt="" width={20} height={20} class="dark:hidden" />
-        <Image src={closeDark} alt="" width={20} height={20} class="hidden dark:block" />
+        <Image src={closeDark} alt="" width={20} height={20} />
       </button>
 
       {hasMultiple && (
@@ -116,16 +115,14 @@ const hasMultiple = images.length > 1;
             class="lightbox-prev absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/40 flex items-center justify-center hover:bg-white/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             aria-label="이전 이미지"
           >
-            <Image src={chevronLeftLight} alt="" width={20} height={20} class="dark:hidden" />
-            <Image src={chevronLeftDark} alt="" width={20} height={20} class="hidden dark:block" />
+            <Image src={chevronLeftDark} alt="" width={20} height={20} />
           </button>
           <button
             type="button"
             class="lightbox-next absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/40 flex items-center justify-center hover:bg-white/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             aria-label="다음 이미지"
           >
-            <Image src={chevronRightLight} alt="" width={20} height={20} class="dark:hidden" />
-            <Image src={chevronRightDark} alt="" width={20} height={20} class="hidden dark:block" />
+            <Image src={chevronRightDark} alt="" width={20} height={20} />
           </button>
         </>
       )}
