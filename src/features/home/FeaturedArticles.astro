@@ -17,25 +17,22 @@ const articles = await getFeaturedArticles();
         articles.map((article, index) => (
           <a
             href={`/articles/${article.data.slug}`}
-            class="hover-lift group block bg-white dark:bg-slate-800 rounded-xl p-6 border border-gray-100 dark:border-slate-700"
+            class="min-h-40 hover-lift block group bg-white dark:bg-slate-800 rounded-xl p-6 border border-gray-100 dark:border-slate-700"
             data-reveal="up"
             data-reveal-delay={String(index * 100)}
             transition:name={`article-card-${article.data.slug}`}
           >
-            <div class="flex flex-wrap gap-1.5 mb-4">
+            <div class="w-full h-5 flex flex-wrap gap-1.5 mb-2">
               {article.data.categories.map((category: string) => (
                 <span class="text-xs px-2 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 rounded-full">
                   {category}
                 </span>
               ))}
             </div>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-2 group-hover:text-gray-600 dark:group-hover:text-slate-300 transition-colors">
+            <h3 class="min-h-[calc(100%-3.5rem)] text-lg font-semibold text-gray-900 dark:text-slate-100 mb-2 group-hover:text-gray-600 dark:group-hover:text-slate-300 transition-colors">
               {article.data.title}
             </h3>
-            <p class="text-sm text-gray-500 dark:text-slate-400 leading-relaxed mb-4">
-              {article.data.summary}
-            </p>
-            <div class="flex items-center justify-between">
+            <div class="w-full h-5 flex items-center justify-between">
               <div class="flex flex-wrap gap-1.5">
                 {article.data.tags.slice(0, 3).map((tag: string) => (
                   <span class="text-xs px-2 py-0.5 bg-gray-50 dark:bg-slate-700/50 text-gray-400 dark:text-slate-500 rounded">
