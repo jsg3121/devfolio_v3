@@ -120,6 +120,7 @@ const formatDate = (date: Date): string => {
   {
     entry.data.images && entry.data.images.length > 0 && (
       <section class="mb-12 md:mb-16">
+        <span class="w-full h-6 text-sm">* 이미지를 클릭하여 확대하실 수 있습니다.</span>
         <div class="image-slider relative">
           <div class="slider-track flex overflow-x-auto snap-x snap-mandatory scrollbar-hide">
             {entry.data.images.map((image: { src: ImageMetadata; alt: string }, index: number) => (
