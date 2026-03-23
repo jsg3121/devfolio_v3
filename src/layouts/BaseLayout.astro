@@ -78,7 +78,12 @@ const ogImageUrl = buildOgImageUrl(ogImage);
           });
         });
         window.addEventListener('pageshow', (e) => {
-          if (e.persisted) applyTheme();
+          if (e.persisted) {
+            applyTheme();
+            requestAnimationFrame(() => {
+              document.body.dataset.themeReady = 'true';
+            });
+          }
         });
       })();
     </script>
