@@ -1,0 +1,262 @@
+---
+title: '포케코리아 SEO 개선기 1편 — 쿼리 파라미터에서 Path URL로 전환하기'
+slug: 'poke-korea-seo-1-path-url-migration'
+summary: '포켓몬 상세 페이지의 메가진화, 리전폼 URL을 쿼리 파라미터 방식에서 Path 기반으로 전환하고, Next.js App Router의 Route Groups와 Optional Catch-all을 활용하여 SEO를 개선한 과정을 정리합니다.'
+tags:
+  - 'seo'
+  - 'nextjs'
+  - 'url-structure'
+  - 'refactoring'
+skills:
+  - 'nextjs'
+  - 'typescript'
+categories:
+  - 'seo'
+publishedAt: '2026-01-15'
+featured: true
+published: true
+order: 6
+seoTitle: '쿼리 파라미터에서 Path URL로 전환하기 — 포케코리아 SEO 개선기 1편'
+seoDescription: 'Next.js App Router의 Route Groups와 Optional Catch-all Segments를 활용하여 쿼리 파라미터 기반 URL을 Path 기반으로 전환하고, 301 리다이렉트로 SEO를 보전한 과정을 정리합니다.'
+---
+
+## 들어가며
+
+> 이 글은 **포케코리아 SEO 개선기** 시리즈의 첫 번째 글입니다.
+>
+> 1편 Path URL 전환 → 2편 JSON-LD 구조화 데이터 → 3편 기술 도감 URL 마이그레이션
+
+포케코리아의 포켓몬 상세 페이지에는 메가진화, 리전폼, 폼체인지 같은 다양한 변형이 있다. 이 변형들을 구분하기 위해 기존에는 쿼리 파라미터를 사용하고 있었다.
+
+```
+/detail/6?activeType=mega
+/detail/6?activeType=mega&activeIndex=1
+/detail/19?activeType=region
+/detail/25?activeIndex=1
+```
+
+URL만 봐서는 어떤 페이지인지 알기 어렵고, 검색엔진 입장에서도 마찬가지다. 쿼리 파라미터 기반 URL이 SEO에 불리한 이유를 파악하고, Path 기반으로 전환하기로 결정했다.
+
+## 쿼리 파라미터가 SEO에 불리한 이유
+
+[Google URL 구조 가이드](https://developers.google.com/search/docs/crawling-indexing/url-structure)에 따르면, 검색엔진은 단순하고 읽기 쉬운 URL을 선호한다. 쿼리 파라미터 방식에는 몇 가지 구조적 문제가 있다.
+
+### 크롤링 우선순위
+
+Googlebot은 쿼리 파라미터가 붙은 URL을 독립적인 페이지로 인식하지 않을 수 있다. `?activeType=mega`가 콘텐츠를 변경하는 파라미터인지, 단순 필터인지 검색엔진이 판단하기 어렵기 때문이다. 실제로 Google Search Console의 URL 매개변수 도구에서 파라미터별로 크롤링 방식을 지정해야 하는 번거로움이 있었다.
+
+### 인덱싱 불확실성
+
+쿼리 파라미터가 무시되면 메가진화 페이지와 기본 페이지가 같은 URL로 인덱싱될 수 있다. [canonical URL](https://developers.google.com/search/docs/crawling-indexing/canonicalization)을 지정해도, 파라미터 순서(`?a=1&b=2` vs `?b=2&a=1`)에 따라 중복 URL이 발생할 여지가 있다.
+
+### URL 가독성
+
+검색 결과에 표시되는 URL이 `/detail/6?activeType=mega&activeIndex=1`보다 `/detail/6/mega/1`이 훨씬 직관적이다. 사용자 클릭률(CTR)에도 영향을 줄 수 있다.
+
+## 전환 설계
+
+### URL 구조 변경
+
+```
+# Before (쿼리 파라미터)
+/detail/6?activeType=mega
+/detail/6?activeType=mega&activeIndex=1
+/detail/19?activeType=region
+/detail/25?activeIndex=1
+
+# After (Path 기반)
+/detail/6/mega
+/detail/6/mega/1
+/detail/19/region
+/detail/25/form/1
+```
+
+기술 페이지도 같은 패턴으로 전환했다.
+
+```
+# Before
+/detail/19/moves?activeType=region
+/detail/25/moves?activeIndex=1
+
+# After
+/detail/19/moves/region
+/detail/25/moves/form/1
+```
+
+### 쿼리 파라미터로 남긴 것
+
+`shinyMode`(이로치 모드)는 Path로 전환하지 않고 쿼리 파라미터로 유지했다. 이로치 모드는 동일한 콘텐츠의 **다른 시각적 표현**일 뿐, 별도 페이지로 인덱싱될 필요가 없기 때문이다.
+
+SEO 관점에서 파라미터를 Path로 전환할지 판단하는 기준은 간단하다.
+
+| 기준 | Path 전환 | 파라미터 유지 |
+|------|-----------|--------------|
+| 콘텐츠가 달라지는가? | O (메가진화 ≠ 리전폼) | — |
+| 독립 페이지로 인덱싱해야 하는가? | O | — |
+| 동일 콘텐츠의 다른 표현인가? | — | O (이로치 모드) |
+
+## Next.js App Router 라우트 구조
+
+### Route Groups로 충돌 해결
+
+기존에 `/detail/[pokemonId]/page.tsx` 하나에서 모든 경우를 쿼리 파라미터로 처리하던 구조를, 타입별로 분리해야 했다. 문제는 `/detail/[pokemonId]/mega`와 `/detail/[pokemonId]/moves`가 같은 레벨에서 충돌할 수 있다는 점이었다.
+
+[Route Groups](https://nextjs.org/docs/app/building-your-application/routing/route-groups)를 사용하여 해결했다. 폴더명을 괄호로 감싸면 **URL에는 영향을 주지 않으면서** 파일 구조를 논리적으로 분리할 수 있다.
+
+```
+src/app/detail/[pokemonId]/
+├── (form)/                    ← URL에 영향 없음
+│   ├── modules/
+│   │   ├── parseFormParams.ts
+│   │   ├── fetchDetailData.ts
+│   │   └── generateMetadata.ts
+│   ├── form/[[...index]]/page.tsx    → /detail/25/form/1
+│   ├── mega/[[...index]]/page.tsx    → /detail/6/mega/1
+│   ├── region/[[...index]]/page.tsx  → /detail/19/region
+│   └── page.tsx                      → /detail/6
+├── moves/
+│   ├── page.tsx                      → /detail/6/moves
+│   ├── form/[[...index]]/page.tsx    → /detail/25/moves/form/1
+│   └── region/[[...index]]/page.tsx  → /detail/19/moves/region
+└── opengraph-image.tsx
+```
+
+`(form)` Route Group 덕분에 폼 관련 라우트(`mega`, `region`, `form`)와 `moves` 라우트가 깔끔하게 분리되었다.
+
+### Optional Catch-all로 인덱스 처리
+
+메가진화 포켓몬 중에는 두 가지 형태를 가진 경우가 있다 (예: 리자몽의 메가진화 X, Y). 이를 `/detail/6/mega`와 `/detail/6/mega/1`로 구분해야 했다.
+
+[Optional Catch-all Segments](https://nextjs.org/docs/app/building-your-application/routing/dynamic-routes#optional-catch-all-segments) `[[...index]]`를 사용하면 하나의 page 파일에서 두 경우를 모두 처리할 수 있다.
+
+```typescript
+// /detail/6/mega      → params.index = undefined
+// /detail/6/mega/1    → params.index = ['1']
+```
+
+일반 Catch-all `[...index]`를 사용하면 `/detail/6/mega`에서 404가 발생한다. Optional(`[[...]]`)이어야 인덱스 없는 기본 경로도 매칭된다.
+
+## 비즈니스 로직 모듈화
+
+기존에 388줄짜리 단일 `page.tsx`에서 모든 데이터 페칭과 메타데이터 생성을 처리하고 있었다. Path 기반으로 분리하면서 공통 로직을 `modules/` 폴더로 추출했다.
+
+| 모듈 | 역할 |
+|------|------|
+| `parseFormParams.ts` | URL path/query 파라미터에서 activeType, activeIndex 추출 |
+| `fetchDetailData.ts` | activeType별 최적화된 GraphQL 데이터 페칭 |
+| `generateMetadata.ts` | SEO 메타데이터 생성 |
+
+### 데이터 페칭 최적화
+
+기존에는 모든 데이터를 한 번에 가져왔지만, activeType별로 필요한 데이터만 선택적으로 페칭하도록 변경했다.
+
+| activeType | 페칭 데이터 |
+|-----------|------------|
+| normal | normalForm + versionGroup + normalFormImageList |
+| mega | megaEvolution 데이터만 |
+| region | regionForm + versionGroup |
+
+불필요한 데이터 요청이 줄어들어 페이지 로딩 시간도 개선되었다.
+
+### 코드 비교
+
+```
+Before: page.tsx 1개, ~388줄 (모든 로직 혼재)
+After:  page.tsx 4개, 각 ~120줄 + modules/ 3개 (로직 분리)
+```
+
+각 page.tsx는 URL 파싱 → 데이터 페칭 → 렌더링의 명확한 흐름을 갖게 되었다.
+
+## 301 리다이렉트 설정
+
+기존 URL로 유입되는 트래픽과 검색엔진 인덱스를 보전하기 위해 [301 영구 리다이렉트](https://developers.google.com/search/docs/crawling-indexing/301-redirects)를 설정했다. 301 리다이렉트는 검색엔진에게 "이 URL은 영구적으로 이동했다"고 알리며, 기존 URL의 링크 자산(PageRank)을 새 URL로 전달한다.
+
+`next.config.js`의 [`redirects`](https://nextjs.org/docs/app/api-reference/config/next-config-js/redirects) 설정을 사용했다.
+
+```javascript
+// next.config.js
+async redirects() {
+  return [
+    // /detail/6?activeType=mega → /detail/6/mega
+    {
+      source: '/detail/:pokemonId',
+      has: [{ type: 'query', key: 'activeType', value: '(?<type>.*)' }],
+      destination: '/detail/:pokemonId/:type',
+      permanent: true,
+    },
+    // /detail/6?activeType=mega&activeIndex=1 → /detail/6/mega/1
+    {
+      source: '/detail/:pokemonId',
+      has: [
+        { type: 'query', key: 'activeType', value: '(?<type>.*)' },
+        { type: 'query', key: 'activeIndex', value: '(?<index>.*)' },
+      ],
+      destination: '/detail/:pokemonId/:type/:index',
+      permanent: true,
+    },
+    // 기술 페이지도 동일한 패턴으로 설정
+    // ...
+  ];
+}
+```
+
+`has` 옵션으로 쿼리 파라미터를 매칭하고, named parameter로 캡처하여 새 경로에 삽입하는 방식이다. `permanent: true`가 HTTP 301을 반환한다.
+
+추가로 page.tsx 내부에서도 `redirect()` 함수로 리다이렉트 처리를 이중으로 적용하여, `next.config.js`에서 잡지 못하는 엣지 케이스도 커버했다.
+
+## 컴포넌트 수정
+
+URL 구조가 바뀌면서 내부 링크를 생성하는 모든 컴포넌트를 수정해야 했다. 주요 변경 포인트는 다음과 같다.
+
+- **Detail.context.tsx** — 서버에서 `activeType`, `activeIndex`를 props로 전달받아 Context에 저장
+- **스위치 컴포넌트** (메가/리전/이로치) — Context에서 값을 읽어 Path 기반 href 생성
+- **검색 결과 링크** — 데스크톱/모바일 모두 Path 기반 URL 생성
+- **이미지 슬라이더** — 슬라이드 변경 시 Path 기반으로 URL 업데이트
+- **사이트맵** — 메가/리전 URL을 Path 기반으로 생성
+
+총 **30개 이상의 파일**을 수정했다.
+
+## 결과
+
+### SEO 개선 효과
+
+| 항목 | Before | After |
+|------|--------|-------|
+| 크롤링 | 파라미터 무시 가능성 있음 | 독립 페이지로 인식 |
+| 인덱싱 | 중복 URL 발생 가능 | canonical URL이 곧 실제 URL |
+| URL 가독성 | `?activeType=mega&activeIndex=1` | `/mega/1` |
+| 키워드 노출 | URL에 키워드 없음 | `mega`, `region` 직접 노출 |
+
+### 코드 품질 개선
+
+| 항목 | Before | After |
+|------|--------|-------|
+| page.tsx 크기 | ~388줄 (단일 파일) | ~120줄 (페이지당) |
+| 비즈니스 로직 | 페이지에 혼재 | modules/ 폴더로 분리 |
+| 데이터 페칭 | 모든 데이터 한 번에 | activeType별 최적화 |
+| 코드 재사용 | 낮음 | modules 공유로 높음 |
+
+## 정리하며
+
+쿼리 파라미터에서 Path URL로의 전환은 단순히 URL 형태를 바꾸는 것이 아니다. 라우트 구조 설계, 데이터 페칭 최적화, 301 리다이렉트 전략, 내부 링크 전체 수정까지 연쇄적으로 따라온다. 30개 이상의 파일을 수정해야 했지만, 결과적으로 SEO와 코드 품질 모두 개선되었다.
+
+핵심 판단 기준은 **해당 파라미터가 콘텐츠를 변경하는가**이다. 콘텐츠가 달라지면 Path로, 동일 콘텐츠의 다른 표현이면 파라미터로 유지하는 것이 원칙이다.
+
+다음 편에서는 JSON-LD 구조화 데이터를 활용하여 검색 결과 노출을 강화한 과정을 다룬다.
+
+---
+
+> **포케코리아 SEO 개선기** 시리즈
+>
+> - **1편: 쿼리 파라미터에서 Path URL로 전환하기** *(현재 글)*
+> - [2편: JSON-LD 구조화 데이터로 검색 노출 강화하기](/articles/poke-korea-seo-2-structured-data)
+> - [3편: 기술 도감 URL 마이그레이션과 Context 전환](/articles/poke-korea-seo-3-moves-path-migration)
+
+### 참고 자료
+
+- [Google — URL 구조 가이드](https://developers.google.com/search/docs/crawling-indexing/url-structure)
+- [Google — Canonical URL](https://developers.google.com/search/docs/crawling-indexing/canonicalization)
+- [Google — 301 리다이렉트](https://developers.google.com/search/docs/crawling-indexing/301-redirects)
+- [Next.js — Route Groups](https://nextjs.org/docs/app/building-your-application/routing/route-groups)
+- [Next.js — Optional Catch-all Segments](https://nextjs.org/docs/app/building-your-application/routing/dynamic-routes#optional-catch-all-segments)
+- [Next.js — Redirects](https://nextjs.org/docs/app/api-reference/config/next-config-js/redirects)
