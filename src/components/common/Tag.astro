@@ -1,0 +1,31 @@
+---
+interface Props {
+  label: string;
+  variant?: 'category' | 'tech';
+}
+
+const { label, variant = 'tech' } = Astro.props;
+
+const radiusClass = variant === 'category' ? 'tag--category' : 'tag--tech';
+---
+
+<span class:list={['tag', radiusClass]}>{label}</span>
+
+<style>
+  .tag {
+    display: inline-block;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    padding: 0.125rem 0.5rem;
+    background-color: var(--color-tag-bg);
+    color: var(--color-tag-text);
+  }
+
+  .tag--category {
+    border-radius: 9999px;
+  }
+
+  .tag--tech {
+    border-radius: 0.25rem;
+  }
+</style>

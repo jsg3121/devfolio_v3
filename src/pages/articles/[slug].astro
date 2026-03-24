@@ -1,5 +1,6 @@
 ---
 import ArticleLayout from '@/layouts/ArticleLayout.astro';
+import Tag from '@/components/common/Tag.astro';
 import { getCollection, render } from 'astro:content';
 import type { GetStaticPaths, InferGetStaticPropsType } from 'astro';
 import { SITE } from '@/lib/constants/site';
@@ -54,9 +55,7 @@ const formatDate = (date: Date): string => {
     <div class="flex flex-wrap gap-1.5 mb-4">
       {
         entry.data.categories.map((category: string) => (
-          <span class="text-xs px-2.5 py-1 bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 rounded-full">
-            {category}
-          </span>
+          <Tag label={category} variant="category" />
         ))
       }
     </div>
@@ -76,9 +75,7 @@ const formatDate = (date: Date): string => {
       <div class="flex flex-wrap gap-1.5">
         {
           entry.data.tags.map((tag: string) => (
-            <span class="px-2 py-0.5 bg-gray-50 dark:bg-slate-800 text-gray-400 dark:text-slate-500 rounded text-xs">
-              {tag}
-            </span>
+            <Tag label={tag} />
           ))
         }
       </div>
