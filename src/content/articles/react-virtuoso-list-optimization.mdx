@@ -1,0 +1,127 @@
+---
+title: 'react-virtuoso를 활용한 리스트 렌더링 최적화'
+slug: 'react-virtuoso-list-optimization'
+summary: '포켓몬 도감 프로젝트에서 카드 리스트의 불필요한 렌더링 문제를 react-virtuoso로 해결하고, 성능을 기존 대비 75% 단축한 과정을 정리합니다.'
+tags:
+  - 'react'
+  - 'performance'
+  - 'virtualization'
+  - 'optimization'
+skills:
+  - 'react'
+  - 'typescript'
+categories:
+  - 'react'
+publishedAt: '2023-04-17'
+featured: false
+published: true
+order: 6
+seoTitle: 'react-virtuoso 리스트 최적화 — 렌더링 시간 75% 단축'
+seoDescription: '대량의 카드 리스트를 한꺼번에 렌더링할 때 발생하는 성능 문제를 react-virtuoso의 가상화 기법으로 해결한 과정과 성능 측정 결과를 정리합니다.'
+---
+
+import renderingBefore from '@/assets/images/article/react-virtuoso-list-optimization/rendering-before.gif';
+import renderingAfter from '@/assets/images/article/react-virtuoso-list-optimization/rendering-after.gif';
+import performanceBefore from '@/assets/images/article/react-virtuoso-list-optimization/performance-before.png';
+import performanceAfter from '@/assets/images/article/react-virtuoso-list-optimization/performance-after.png';
+
+## 들어가며
+
+사이드 프로젝트로 만들고 있는 포켓몬 도감 페이지에서, 3세대 포켓몬을 추가하면서 카드 수가 386개로 늘어났다. 그 결과 페이지 로딩 시간이 눈에 띄게 길어졌고, 원인을 추적해보니 **화면에 보이지 않는 카드까지 전부 렌더링**하고 있는 것이 문제였다.
+
+이 글에서는 문제를 분석하고, `react-virtuoso`를 적용하여 렌더링 성능을 개선한 과정을 정리한다.
+
+## 문제 분석
+
+### 전체 렌더링 방식의 한계
+
+기존 구현은 데이터를 모두 가져온 뒤, 포켓몬 수만큼 카드를 **한꺼번에** 생성하여 화면에 표시하는 방식이었다.
+
+1~2세대(251개)까지는 체감상 큰 문제가 없었지만, 3세대를 추가하면서 386개의 카드를 동시에 렌더링하게 되자 로딩 시간이 급격히 길어졌다.
+
+### 카드 컴포넌트의 복잡성
+
+단순한 텍스트 리스트가 아니었다. 각 카드 컴포넌트에는 다음 요소들이 포함되어 있었다.
+
+- 포켓몬 이미지
+- 타입 태그 컴포넌트
+- 메가진화/리전폼 아이콘 (조건부 렌더링)
+
+카드 하나를 생성할 때 내부의 모든 자식 컴포넌트도 함께 렌더링되므로, 386개의 카드는 수천 개의 컴포넌트 렌더링으로 이어졌다.
+
+### lazy loading만으로는 부족했다
+
+이미지에 lazy loading을 적용해봤지만, 근본적인 문제는 **카드 컴포넌트 자체의 렌더링**이었기 때문에 큰 효과를 볼 수 없었다. 이미지 요청은 줄어들었지만, DOM 노드 생성과 컴포넌트 마운트 비용은 그대로였다.
+
+### 적용 전 렌더링 확인
+
+카드 컴포넌트에 로그를 추가하여 렌더링 횟수를 확인해보았다.
+
+<img src={renderingBefore.src} alt="적용 전 페이지 렌더링 — 400개 이상의 카드가 한꺼번에 렌더링된다" />
+
+화면에 보이는 카드는 10개 미만이지만, 실제로는 400개 이상의 카드가 한꺼번에 생성되고 있었다. 불필요한 렌더링이 대부분인 셈이다.
+
+## 해결: react-virtuoso 적용
+
+### 가상화(Virtualization)란
+
+가상화는 **화면에 보이는 영역의 항목만 실제로 렌더링**하는 기법이다. 스크롤 위치에 따라 보이는 영역이 바뀌면, 해당 영역의 항목만 동적으로 생성하고 벗어난 항목은 제거한다.
+
+```
+전체 리스트: [1] [2] [3] [4] [5] [6] [7] [8] ... [386]
+                      ↕ 화면 영역
+실제 렌더링:          [3] [4] [5] [6]
+                      ↕ 스크롤 이동
+실제 렌더링:               [4] [5] [6] [7]
+```
+
+### react-virtuoso 선택 이유
+
+여러 가상화 라이브러리 중 `react-virtuoso`를 선택한 이유는 다음과 같다.
+
+- **동적 높이 지원**: 카드 높이가 일정하지 않아도 자동으로 계산
+- **그리드 레이아웃 지원**: 카드형 UI에 적합한 `VirtuosoGrid` 제공
+- **간단한 API**: 기존 리스트 코드를 최소한으로 변경하여 적용 가능
+
+### 적용 후 렌더링 확인
+
+<img src={renderingAfter.src} alt="적용 후 페이지 렌더링 — 화면에 보이는 6개의 카드만 렌더링된다" />
+
+페이지 로드 시 화면에 보이는 6개의 카드만 렌더링되고, 스크롤을 내릴 때마다 필요한 카드만 추가로 생성되는 것을 확인할 수 있다.
+
+## 성능 비교
+
+Chrome DevTools의 Performance 탭을 사용하여 적용 전후를 측정했다.
+
+### 적용 전
+
+<img src={performanceBefore.src} alt="적용 전 성능 측정 — 스크립팅 약 2000ms" />
+
+- **스크립팅**: 약 2,000ms
+- 유휴 상태를 제외한 총 처리 시간이 2초를 넘었다
+
+### 적용 후
+
+<img src={performanceAfter.src} alt="적용 후 성능 측정 — 스크립팅 약 310ms" />
+
+- **스크립팅**: 약 310ms (기존 대비 **약 85% 감소**)
+- 렌더링, 페인팅 시간도 함께 단축
+- 유휴 상태를 제외한 총 처리 시간: 약 500ms
+
+### 측정 결과 요약
+
+| 항목 | 적용 전 | 적용 후 | 개선율 |
+|------|---------|---------|--------|
+| 스크립팅 | ~2,000ms | ~310ms | 85% 감소 |
+| 총 처리 시간 (유휴 제외) | ~2,000ms+ | ~500ms | 75% 단축 |
+| 초기 렌더링 카드 수 | 386개 | 6개 | 98% 감소 |
+
+## 정리
+
+이번 최적화의 핵심은 단순했다. **보이지 않는 것은 렌더링하지 않는다.**
+
+- lazy loading은 **이미지 요청**을 지연시키지만, **컴포넌트 렌더링** 자체는 줄이지 못한다
+- 가상화는 **DOM 노드 생성과 컴포넌트 마운트 비용**을 근본적으로 줄인다
+- 리스트 항목이 복잡할수록(내부 컴포넌트가 많을수록) 가상화의 효과가 크다
+
+대량의 리스트를 다룰 때는 먼저 "화면에 보이지 않는 항목이 몇 개나 렌더링되고 있는가"를 확인해보는 것이 좋다. 그 수가 화면에 보이는 항목의 수배를 넘는다면, 가상화를 적용할 시점이다.
