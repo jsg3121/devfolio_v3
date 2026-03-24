@@ -44,7 +44,7 @@ const articles = defineCollection({
 
 const sideProjects = defineCollection({
   loader: glob({ pattern: '**/*.mdx', base: './src/content/side-projects' }),
-  schema: z.object({
+  schema: ({ image }) => z.object({
     title: z.string(),
     slug: z.string(),
     status: z.enum(['active', 'paused', 'archived']),
@@ -59,6 +59,10 @@ const sideProjects = defineCollection({
     projectUrl: z.string().optional(),
     coverImage: z.string().optional(),
     coverAlt: z.string().optional(),
+    images: z.array(z.object({
+      src: image(),
+      alt: z.string(),
+    })).optional(),
     order: z.number(),
     seoTitle: z.string().optional(),
     seoDescription: z.string().optional(),
