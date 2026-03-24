@@ -1,0 +1,252 @@
+---
+title: '포케코리아 웹 성능 최적화 2편 — 한글 웹폰트 서브셋팅으로 126KB 줄이기'
+slug: 'poke-korea-performance-2-font-subsetting'
+summary: 'Gmarket Sans 웹폰트에 pyftsubset으로 서브셋팅을 적용하여 폰트 번들 726KB를 600KB로 줄이고, FCP와 LCP를 개선한 과정을 정리합니다.'
+tags:
+  - 'font'
+  - 'performance'
+  - 'optimization'
+  - 'nextjs'
+skills:
+  - 'nextjs'
+  - 'css'
+categories:
+  - 'web-performance'
+publishedAt: '2026-01-02'
+featured: false
+published: true
+order: 8
+seoTitle: '한글 웹폰트 서브셋팅으로 126KB 줄이기 — 포케코리아 최적화 2편'
+seoDescription: 'pyftsubset을 사용하여 Gmarket Sans 웹폰트를 서브셋팅하고, 폰트 번들 크기를 17.4% 줄여 FCP와 LCP를 개선한 과정을 정리합니다.'
+---
+
+## 들어가며
+
+> 이 글은 **포케코리아 웹 성능 최적화** 시리즈의 두 번째 글입니다.
+>
+> 1편 CSS 리팩토링 → 2편 폰트 서브셋팅 → 3편 이미지 최적화 → 4편 Lighthouse 결과 비교
+
+웹에서 폰트는 렌더링 차단 리소스다. 브라우저가 폰트 파일을 다운로드하는 동안 텍스트가 보이지 않거나(FOIT), 폴백 폰트로 먼저 표시되었다가 교체되는(FOUT) 현상이 발생한다. 특히 한글 폰트는 글리프 수가 많아 영문 폰트보다 파일 크기가 훨씬 크다.
+
+포케코리아에서 사용하는 Gmarket Sans는 Medium과 Bold 두 가지 웨이트로, 합계 726KB를 차지하고 있었다. 실제로 사이트에서 사용하는 문자는 한글, 영문, 숫자, 기본 기호뿐인데, 폰트 파일에는 그 외의 글리프도 모두 포함되어 있었다.
+
+## 웹폰트가 성능에 미치는 영향
+
+### FOIT와 FOUT
+
+웹폰트 로딩 중 발생하는 두 가지 현상이 있다.
+
+- **FOIT (Flash of Invisible Text)** — 폰트가 로드될 때까지 텍스트가 보이지 않는 현상. Chrome, Firefox 등 대부분의 브라우저에서 약 3초간 발생한다.
+- **FOUT (Flash of Unstyled Text)** — 폴백 폰트로 먼저 텍스트를 보여주다가, 웹폰트 로드 완료 후 교체되는 현상.
+
+FOIT는 사용자가 콘텐츠를 읽을 수 없는 시간을 만든다. 이를 방지하기 위해 `font-display: swap`을 적용하면 FOUT로 전환되는데, 이 경우에도 폰트 교체 시 레이아웃이 미세하게 움직일 수 있다.
+
+어느 쪽이든 **폰트 파일이 작을수록 문제가 줄어든다**. 다운로드가 빨리 끝나면 FOIT 시간이 짧아지고, FOUT의 교체 시점도 앞당겨진다.
+
+> 참고: [web.dev — Best practices for fonts](https://web.dev/articles/font-best-practices), [MDN — font-display](https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display)
+
+### FCP와 LCP에 미치는 영향
+
+- **FCP (First Contentful Paint)** — 첫 번째 콘텐츠가 화면에 그려지는 시점. 폰트가 렌더링 차단 리소스이므로 폰트 크기가 직접적으로 영향을 준다.
+- **LCP (Largest Contentful Paint)** — 가장 큰 콘텐츠가 완성되는 시점. 텍스트가 LCP 요소인 경우, 폰트 로딩이 LCP를 지연시킨다.
+
+## Font Subsetting이란
+
+Font Subsetting은 폰트 파일에서 실제로 사용하는 문자(글리프)만 추출하여 새로운 폰트 파일을 생성하는 기법이다.
+
+```
+원본 폰트 (전체 글리프)     →     서브셋 폰트 (필요한 글리프만)
+┌──────────────────────┐    ┌──────────────────────┐
+│ 한글 11,172자         │    │ 한글 2,350자          │
+│ 한자 4,888자          │    │ 영문 52자             │
+│ 영문 52자             │    │ 숫자 10자             │
+│ 숫자 10자             │    │ 기본 기호 30자        │
+│ 기호 수백 자          │    │                      │
+│ 기타 특수 글리프      │    │                      │
+└──────────────────────┘    └──────────────────────┘
+        361KB                      299KB (-17.2%)
+```
+
+핵심은 **어떤 유니코드 범위를 포함할지** 결정하는 것이다.
+
+## 한글 유니코드 범위 선택
+
+### 11,172자 vs 2,350자
+
+한글 유니코드 블록(`U+AC00`~`U+D7A3`)에는 초성(19) × 중성(21) × 종성(28) 조합으로 만들 수 있는 **11,172자**가 모두 배정되어 있다. 하지만 실제로 사용되는 글자는 이보다 훨씬 적다.
+
+KS X 1001 표준에서 정의한 **한글 완성형 2,350자**는 실사용 빈도를 기반으로 선정된 집합으로, 현대 한국어 텍스트의 99.9% 이상을 커버한다. "뷁", "쓩" 같은 글자는 빠지지만, 일반적인 웹 서비스에서는 문제가 되지 않는다.
+
+> 참고: [Unicode Hangul Syllables](https://unicode.org/charts/PDF/UAC00.pdf)
+
+### 선택한 유니코드 범위
+
+포케코리아에서 사용하는 문자를 분석하여 다음 범위를 선택했다.
+
+| 범위 | 내용 | 글자 수 |
+|------|------|---------|
+| `U+AC00-U+D7A3` | 한글 완성형 | 2,350자 |
+| `U+0030-U+0039` | 숫자 (0-9) | 10자 |
+| `U+0041-U+005A` | 영문 대문자 (A-Z) | 26자 |
+| `U+0061-U+007A` | 영문 소문자 (a-z) | 26자 |
+| `U+0020-U+002F` | 공백, 특수문자 | 16자 |
+| `U+003A-U+0040` | 콜론, 세미콜론 등 | 7자 |
+
+한글 자모(`U+3131-U+3163`)나 한자는 포케코리아에서 사용하지 않으므로 제외했다.
+
+## pyftsubset으로 서브셋팅 적용
+
+### 도구 설치
+
+서브셋팅에는 Python 기반의 [fonttools](https://github.com/fonttools/fonttools) 라이브러리에 포함된 `pyftsubset` CLI를 사용했다.
+
+```bash
+pip3 install fonttools brotli
+```
+
+`brotli`는 WOFF2 포맷의 압축 알고리즘이다. 이 패키지가 없으면 WOFF2 출력이 불가능하다.
+
+### 서브셋 생성
+
+```bash
+# Medium weight
+pyftsubset src/assets/font/GmarketSansMedium.woff2 \
+  --output-file=src/assets/font/GmarketSansMedium.subset.woff2 \
+  --unicodes="U+AC00-D7A3,U+0030-0039,U+0041-005A,U+0061-007A,U+0020-002F,U+003A-0040" \
+  --flavor=woff2 \
+  --layout-features='*'
+
+# Bold weight
+pyftsubset src/assets/font/GmarketSansBold.woff2 \
+  --output-file=src/assets/font/GmarketSansBold.subset.woff2 \
+  --unicodes="U+AC00-D7A3,U+0030-0039,U+0041-005A,U+0061-007A,U+0020-002F,U+003A-0040" \
+  --flavor=woff2 \
+  --layout-features='*'
+```
+
+각 옵션의 의미는 다음과 같다.
+
+| 옵션 | 설명 |
+|------|------|
+| `--unicodes` | 포함할 유니코드 범위 |
+| `--flavor=woff2` | 출력 포맷. [WOFF2](https://caniuse.com/woff2)는 Brotli 압축을 사용하여 WOFF 대비 약 30% 작다 |
+| `--layout-features='*'` | 커닝, 리거처 등 모든 OpenType 레이아웃 기능을 유지 |
+
+`--layout-features='*'`를 빠뜨리면 한글 자모 조합 규칙이나 글자 간격 정보가 손실될 수 있다.
+
+> 참고: [fonttools 공식 문서](https://fonttools.readthedocs.io/en/latest/subset/index.html)
+
+### WOFF2를 단독으로 사용한 이유
+
+WOFF2의 브라우저 지원률은 전 세계 기준 약 97~98%이며, 포케코리아의 타겟 브라우저는 모두 지원한다.
+
+```json
+"Chrome >= 114",
+"Edge >= 114",
+"Firefox >= 115",
+"Safari >= 15.4"
+```
+
+WOFF 폴백을 추가하면 관리 포인트만 늘어나므로 WOFF2 단독으로 결정했다.
+
+## Next.js에서 서브셋 폰트 적용
+
+포케코리아는 Next.js의 `next/font/local`을 사용하여 로컬 폰트를 로드하고 있다. 경로만 서브셋 파일로 변경하면 된다.
+
+```typescript
+// layout.tsx
+const gmarket = localFont({
+  src: [
+    {
+      path: '../assets/font/GmarketSansMedium.subset.woff2',
+      weight: '500',
+      style: 'normal',
+    },
+    {
+      path: '../assets/font/GmarketSansBold.subset.woff2',
+      weight: '700',
+      style: 'normal',
+    },
+  ],
+  display: 'swap',
+  preload: true,
+  variable: '--font-gmarket-sans',
+});
+```
+
+`next/font`는 다음을 자동으로 처리한다.
+
+- **셀프 호스팅** — 외부 CDN 요청 없이 빌드 결과물에 폰트를 포함
+- **`size-adjust` 적용** — 폴백 폰트와의 메트릭 차이를 자동 보정하여 CLS 최소화
+- **Preload** — `preload: true`로 `<link rel="preload">` 태그를 자동 생성
+
+> 참고: [Next.js — Font Optimization](https://nextjs.org/docs/app/building-your-application/optimizing/fonts)
+
+## 결과
+
+### 파일 크기 비교
+
+| 폰트 파일 | 원본 | 서브셋 | 감소량 | 감소율 |
+|-----------|------|--------|--------|--------|
+| GmarketSansMedium.woff2 | 361KB | 299KB | 62KB | 17.2% |
+| GmarketSansBold.woff2 | 365KB | 301KB | 64KB | 17.5% |
+| **합계** | **726KB** | **600KB** | **126KB** | **17.4%** |
+
+### 성능 개선 효과
+
+폰트 서브셋팅은 특히 FCP에 큰 영향을 미쳤다. 4편에서 다룰 Lighthouse 측정 결과를 미리 요약하면 다음과 같다.
+
+| 페이지 | FCP 개선율 |
+|--------|-----------|
+| 특성 도감 | **41.2%** (2,868ms → 1,685ms) |
+| 특성 도감 상세 | **28.9%** (2,376ms → 1,688ms) |
+
+이 두 페이지는 텍스트 콘텐츠가 많아 폰트 로딩 시간이 FCP에 직접적인 영향을 주는 구조였다. 126KB 감소가 이 정도의 FCP 개선으로 이어진 것은, 폰트가 렌더링 차단 리소스이기 때문이다.
+
+### 부수 효과
+
+- **느린 네트워크 환경** — 3G 환경에서 126KB 감소는 체감 로딩 속도에 유의미한 차이를 만든다
+- **모바일 캐시** — 더 작은 파일은 브라우저 캐시에 더 오래 유지될 가능성이 높다
+- **CDN 비용** — 트래픽이 늘어날수록 절감 효과가 누적된다
+
+## 서브셋팅 시 주의할 점
+
+### 빠진 글자 대응
+
+서브셋에 포함되지 않은 글자가 페이지에 등장하면 **폴백 폰트로 렌더링**된다. Gmarket Sans 대신 시스템 기본 폰트가 적용되므로 시각적으로 눈에 띌 수 있다.
+
+포케코리아는 사용자가 직접 텍스트를 입력하는 서비스가 아니고, 포켓몬 이름과 정보는 사전에 확인된 데이터이므로 2,350자 범위로 충분했다. 만약 사용자 입력이 있는 서비스라면 11,172자 전체를 포함하거나, `unicode-range`를 활용한 분할 로딩을 고려해야 한다.
+
+### 원본 폰트 보관
+
+서브셋 파일 생성 후에도 원본 파일은 삭제하지 않고 보관했다. 나중에 유니코드 범위를 확장해야 할 때 원본에서 다시 추출할 수 있어야 하기 때문이다.
+
+### `--layout-features='*'`를 빠뜨리지 말 것
+
+이 옵션 없이 서브셋팅하면 OpenType 레이아웃 기능이 제거된다. 커닝(글자 간격) 정보가 사라지면 텍스트가 미묘하게 다르게 렌더링될 수 있다.
+
+## 정리하며
+
+한글 웹폰트 서브셋팅은 적용이 간단한 반면 효과가 확실한 최적화 기법이다. `pyftsubset` 명령어 한 줄로 폰트 파일을 생성하고, 기존 코드에서 경로만 바꾸면 된다.
+
+핵심 판단 기준은 **사이트에서 실제로 사용하는 문자 범위가 무엇인지**를 정확히 파악하는 것이다. 범위를 너무 줄이면 빠진 글자가 발생하고, 너무 넓히면 최적화 효과가 떨어진다.
+
+다음 편에서는 srcset과 DPR을 활용한 반응형 이미지 최적화로 대역폭을 44% 절감한 과정을 다룬다.
+
+---
+
+> **포케코리아 웹 성능 최적화** 시리즈
+>
+> - 1편: Tailwind CSS 중복 500회를 @layer components로 정리하기
+> - **2편: 한글 웹폰트 서브셋팅으로 126KB 줄이기** *(현재 글)*
+> - 3편: srcset과 DPR로 이미지 대역폭 44% 절감하기
+> - 4편: Lighthouse로 검증한 최적화 전후 비교
+
+### 참고 자료
+
+- [web.dev — Best practices for fonts](https://web.dev/articles/font-best-practices)
+- [web.dev — Reduce WebFont Size](https://web.dev/articles/reduce-webfont-size)
+- [MDN — font-display](https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display)
+- [fonttools — pyftsubset 문서](https://fonttools.readthedocs.io/en/latest/subset/index.html)
+- [Can I Use — WOFF2](https://caniuse.com/woff2)
+- [Next.js — Font Optimization](https://nextjs.org/docs/app/building-your-application/optimizing/fonts)
