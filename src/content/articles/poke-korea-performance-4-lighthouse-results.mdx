@@ -1,0 +1,221 @@
+---
+title: '포케코리아 웹 성능 최적화 4편 — Lighthouse로 검증한 최적화 전후 비교'
+slug: 'poke-korea-performance-4-lighthouse-results'
+summary: 'CSS 리팩토링, 폰트 서브셋팅, 이미지 최적화를 적용한 후 9개 페이지의 Lighthouse 측정 결과를 비교하고, 어떤 최적화가 어떤 지표에 영향을 미쳤는지 분석합니다.'
+tags:
+  - 'lighthouse'
+  - 'performance'
+  - 'core-web-vitals'
+  - 'optimization'
+skills:
+  - 'nextjs'
+categories:
+  - 'web-performance'
+publishedAt: '2026-01-02'
+featured: false
+published: true
+order: 10
+seoTitle: 'Lighthouse로 검증한 웹 성능 최적화 전후 비교 — 포케코리아 최적화 4편'
+seoDescription: 'CSS 리팩토링, 폰트 서브셋팅, 반응형 이미지 최적화 적용 후 9개 페이지의 Lighthouse Core Web Vitals 측정 결과를 비교 분석합니다.'
+---
+
+## 들어가며
+
+> 이 글은 **포케코리아 웹 성능 최적화** 시리즈의 마지막 글입니다.
+>
+> 1편 CSS 리팩토링 → 2편 폰트 서브셋팅 → 3편 이미지 최적화 → 4편 Lighthouse 결과 비교
+
+1~3편에서 다룬 세 가지 최적화를 요약하면 다음과 같다.
+
+| 최적화 | 핵심 내용 |
+|--------|-----------|
+| CSS 리팩토링 | 500회 이상의 클래스 중복을 @layer components로 추출 |
+| 폰트 서브셋팅 | Gmarket Sans 726KB → 600KB (17.4% 감소) |
+| 이미지 최적화 | srcset + DPR 대응, fetchPriority 전략 최적화 |
+
+이 세 가지를 모두 적용한 뒤, 실제 상용 환경에서 9개 주요 페이지의 Lighthouse를 측정했다. 이 글에서는 측정 결과를 공유하고, 어떤 최적화가 어떤 지표에 영향을 미쳤는지 분석한다.
+
+## 측정 환경
+
+- **측정 대상**: 상용 배포 환경 (Production)
+- **측정 도구**: Lighthouse (Chrome DevTools)
+- **측정 페이지**: 9개 주요 페이지
+- **측정 방식**: 각 페이지 최적화 전후 2회씩 측정하여 비교
+
+> 참고: Lighthouse 점수는 네트워크 상태, 서버 응답 시간 등 외부 요인의 영향을 받는다. 특히 FCP는 측정 시점에 따라 편차가 클 수 있으므로, 전체 추세를 기준으로 해석해야 한다.
+>
+> [web.dev — Lighthouse performance scoring](https://web.dev/articles/performance-scoring)
+
+## 전체 요약
+
+### 평균 점수 변화
+
+| 카테고리 | 개선 전 | 개선 후 | 변화 |
+|----------|---------|---------|------|
+| **Performance** | 75점 | 76점 | **+1점** |
+| **Accessibility** | 97점 | 97점 | 0점 |
+| **Best Practices** | 97점 | 99점 | **+2점** |
+| **SEO** | 100점 | 100점 | 0점 |
+
+Performance 점수 자체는 큰 변화가 아니지만, 개별 Core Web Vitals 지표에서 유의미한 개선이 있었다.
+
+### Core Web Vitals 평균 개선율
+
+| 지표 | 개선 전 | 개선 후 | 개선율 |
+|------|---------|---------|--------|
+| **FCP** (First Contentful Paint) | 1,908ms | 1,795ms | **-5.9%** (113ms 단축) |
+| **LCP** (Largest Contentful Paint) | 6,923ms | 6,239ms | **-9.9%** (684ms 단축) |
+| **TBT** (Total Blocking Time) | 52ms | 45ms | **-13.5%** (7ms 단축) |
+| **CLS** (Cumulative Layout Shift) | 0 | 0 | **0 유지** |
+| **SI** (Speed Index) | 2,920ms | 2,748ms | **-5.9%** (172ms 단축) |
+
+## 페이지별 상세 분석
+
+### TOP 3 개선 페이지
+
+가장 큰 개선을 보인 세 페이지를 먼저 살펴본다.
+
+#### 1위: 특성 도감 — Performance +7점
+
+| 지표 | 개선 전 | 개선 후 | 개선율 |
+|------|---------|---------|--------|
+| Performance | 71점 | 78점 | **+7점** |
+| FCP | 2,868ms | 1,685ms | **-41.2%** |
+| LCP | 7,567ms | 5,577ms | **-26.3%** |
+| SI | 2,868ms | 2,668ms | **-7.0%** |
+
+FCP가 41.2% 개선된 것이 가장 눈에 띈다. 이 페이지는 텍스트 콘텐츠가 많아 **폰트 서브셋팅의 효과가 극대화**된 케이스다. 폰트 파일 126KB 감소가 FCP 1,183ms 단축으로 이어졌다.
+
+#### 2위: 기술 도감 — Performance +4점
+
+| 지표 | 개선 전 | 개선 후 | 개선율 |
+|------|---------|---------|--------|
+| Performance | 75점 | 79점 | **+4점** |
+| Accessibility | 96점 | 97점 | **+1점** |
+| Best Practices | 96점 | 100점 | **+4점** |
+| LCP | 6,939ms | 5,580ms | **-19.6%** |
+| TBT | 74.5ms | 55ms | **-26.2%** |
+| SI | 2,672ms | 1,835ms | **-31.3%** |
+
+모든 카테고리에서 개선된 유일한 페이지다. Speed Index가 31.3% 개선되어 체감 로딩 속도가 크게 향상되었다.
+
+#### 3위: 포켓몬 상세 기술 — Performance +3점
+
+| 지표 | 개선 전 | 개선 후 | 개선율 |
+|------|---------|---------|--------|
+| Performance | 76점 | 79점 | **+3점** |
+| LCP | 6,935ms | 5,578ms | **-19.6%** |
+| TBT | 57ms | 43ms | **-24.6%** |
+| SI | 2,296ms | 2,005ms | **-12.7%** |
+
+이미지가 많이 포함된 페이지로, **srcset 최적화와 fetchPriority 전략의 효과**가 LCP 개선으로 나타났다.
+
+### 나머지 페이지
+
+| 페이지 | Performance | 주요 개선 지표 |
+|--------|-------------|---------------|
+| 특성 도감 상세 | 73 → 76점 (+3) | FCP -28.9%, LCP -8.8% |
+| 타입 상성 계산기 | 76 → 78점 (+2) | LCP -9.8% |
+| 홈화면 | 73 → 72점 (-1) | TBT -43.9%, SI -17.0% |
+| 도감화면 | 76 → 75점 (-1) | Best Practices +4점 |
+| 포켓몬 상세 | 75 → 75점 (0) | LCP -6.4% |
+| 기술 도감 상세 | 76 → 76점 (0) | LCP -6.8% |
+
+홈화면과 도감화면은 Performance 점수가 소폭 하락했지만, 이는 측정 시점의 네트워크 편차로 추정된다. 홈화면의 경우 TBT가 43.9% 개선되어 실제 사용자 체감 성능은 오히려 좋아졌다.
+
+## 최적화 기법별 효과 분석
+
+### 이미지 최적화 → LCP, SI
+
+srcset과 fetchPriority 전략이 가장 직접적으로 영향을 준 지표는 LCP다.
+
+| 페이지 | LCP 개선율 |
+|--------|-----------|
+| 특성 도감 | **-26.3%** |
+| 기술 도감 | **-19.6%** |
+| 포켓몬 상세 기술 | **-19.6%** |
+| 타입 상성 계산기 | **-9.8%** |
+| 특성 도감 상세 | **-8.8%** |
+
+평균 LCP가 6,923ms에서 6,239ms로 **684ms 단축**되었다. DPR에 맞는 적절한 크기의 이미지를 제공하고, 첫 화면 이미지에만 fetchPriority를 집중한 결과다.
+
+### 폰트 서브셋팅 → FCP
+
+폰트 서브셋팅 효과는 텍스트 비중이 높은 페이지에서 두드러졌다.
+
+| 페이지 | FCP 개선율 |
+|--------|-----------|
+| 특성 도감 | **-41.2%** (2,868 → 1,685ms) |
+| 특성 도감 상세 | **-28.9%** (2,376 → 1,688ms) |
+
+이 두 페이지는 이미지보다 텍스트가 FCP 요소인 구조라서, 폰트 로딩 시간 단축이 곧 FCP 단축으로 이어졌다.
+
+### CSS 리팩토링 → TBT, Best Practices
+
+CSS 번들 크기 감소와 불필요한 패키지(dialog-polyfill) 제거가 TBT에 영향을 줬다.
+
+| 페이지 | TBT 개선율 |
+|--------|-----------|
+| 홈화면 | **-43.9%** (82 → 46ms) |
+| 기술 도감 | **-26.2%** (74.5 → 55ms) |
+| 포켓몬 상세 기술 | **-24.6%** (57 → 43ms) |
+
+Best Practices도 평균 97점에서 99점으로 향상되었다. 하드코딩된 색상 제거, CSS Variables 통합 등 코드 품질 개선이 반영된 결과다.
+
+### CLS — 0 완벽 유지
+
+**모든 페이지에서 CLS 0을 유지**했다. 이는 의도한 결과다.
+
+- line-height 시스템을 일관되게 구축 (1편)
+- 이미지에 `width`, `height` 속성을 명시하여 레이아웃 시프트 방지 (3편)
+- `font-display: swap`과 함께 `size-adjust`로 폴백 폰트 메트릭 보정 (2편)
+
+> 참고: [web.dev — Optimize Cumulative Layout Shift](https://web.dev/articles/optimize-cls)
+
+## 전체 개선 통계
+
+| 지표 | 개선된 페이지 | 유지 | 하락 |
+|------|-------------|------|------|
+| Performance | 6개 | 3개 | 0개 |
+| Best Practices | 7개 | 2개 | 0개 |
+| LCP | 7개 | 0개 | 2개 |
+| TBT | 4개 | 2개 | 3개 |
+| SI | 7개 | 0개 | 2개 |
+
+Performance가 하락한 페이지는 0개, LCP와 SI는 9개 중 7개에서 개선되었다.
+
+## 시리즈를 마치며
+
+4편에 걸쳐 다룬 최적화를 정리하면 다음과 같다.
+
+| 편 | 최적화 | 주요 영향 지표 | 핵심 수치 |
+|----|--------|---------------|-----------|
+| 1편 | CSS @layer 리팩토링 | TBT, Best Practices | 500회 중복 제거, 코드 70% 감소 |
+| 2편 | 폰트 서브셋팅 | FCP | 126KB 감소, FCP 최대 41.2% 개선 |
+| 3편 | 반응형 이미지 | LCP, SI | 대역폭 44% 절감, LCP 최대 26.3% 개선 |
+| 4편 | 측정 및 검증 | — | 9개 페이지 전후 비교 |
+
+세 가지 최적화 중 어느 하나가 압도적으로 효과적이라기보다, **각각이 다른 지표에 영향을 미쳐 전체적인 성능 개선으로 이어졌다**는 점이 핵심이다.
+
+- 이미지 최적화만으로는 FCP가 개선되지 않는다
+- 폰트 서브셋팅만으로는 TBT가 줄지 않는다
+- CSS 리팩토링만으로는 LCP가 빨라지지 않는다
+
+성능 최적화는 단일 기법의 효과보다, 여러 기법을 조합했을 때의 누적 효과가 더 크다. 그리고 그 효과를 객관적으로 확인하려면 **최적화 전에 기준점을 측정해두는 것**이 중요하다.
+
+---
+
+> **포케코리아 웹 성능 최적화** 시리즈
+>
+> - 1편: Tailwind CSS 중복 500회를 @layer components로 정리하기
+> - 2편: 한글 웹폰트 서브셋팅으로 126KB 줄이기
+> - 3편: srcset과 DPR로 이미지 대역폭 44% 절감하기
+> - **4편: Lighthouse로 검증한 최적화 전후 비교** *(현재 글)*
+
+### 참고 자료
+
+- [web.dev — Lighthouse performance scoring](https://web.dev/articles/performance-scoring)
+- [web.dev — Optimize Cumulative Layout Shift](https://web.dev/articles/optimize-cls)
+- [web.dev — Largest Contentful Paint](https://web.dev/articles/lcp)
+- [web.dev — First Contentful Paint](https://web.dev/articles/fcp)
+- [web.dev — Total Blocking Time](https://web.dev/articles/tbt)
