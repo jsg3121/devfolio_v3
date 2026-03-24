@@ -1,0 +1,294 @@
+---
+title: '포케코리아 웹 성능 최적화 3편 — srcset과 DPR로 이미지 대역폭 44% 절감하기'
+slug: 'poke-korea-performance-3-responsive-images'
+summary: 'PageSpeed Insights의 "Properly size images" 경고를 해결하기 위해 srcset과 DPR 기반 반응형 이미지를 구현하고, fetchPriority 전략을 최적화하여 대역폭을 44% 절감한 과정을 정리합니다.'
+tags:
+  - 'image-optimization'
+  - 'performance'
+  - 'responsive'
+  - 'nextjs'
+skills:
+  - 'nextjs'
+  - 'typescript'
+  - 'html'
+categories:
+  - 'web-performance'
+publishedAt: '2026-01-02'
+featured: false
+published: true
+order: 9
+seoTitle: 'srcset과 DPR로 이미지 대역폭 44% 절감하기 — 포케코리아 최적화 3편'
+seoDescription: 'srcset의 x 디스크립터를 활용한 DPR 대응, fetchPriority 전략 최적화, rem 기반 정확한 이미지 크기 계산으로 PageSpeed 경고를 해결하고 대역폭을 44% 절감한 과정을 정리합니다.'
+---
+
+## 들어가며
+
+> 이 글은 **포케코리아 웹 성능 최적화** 시리즈의 세 번째 글입니다.
+>
+> 1편 CSS 리팩토링 → 2편 폰트 서브셋팅 → 3편 이미지 최적화 → 4편 Lighthouse 결과 비교
+
+포케코리아의 포켓몬 카드 리스트는 이미지 중심 UI다. 각 카드에 포켓몬 이미지가 들어가고, 한 페이지에 수십 개가 노출된다. PageSpeed Insights에서 다음 경고가 반복적으로 나타나고 있었다.
+
+> "Properly size images — 표시된 크기 대비 다운로드된 이미지가 큼"
+
+원인은 명확했다. 모든 디바이스에 단일 해상도 이미지를 제공하고 있었기 때문이다.
+
+- 데스크톱: 160px로 표시하는데 240px 이미지를 다운로드
+- 모바일: 140px로 표시하는데 180px 이미지를 다운로드 (실제로는 120px가 맞았음)
+- DPR=2 디바이스: 해상도가 부족하여 이미지가 흐릿하게 보임
+- `fetchPriority="high"`가 모든 카드에 적용되어 초기 로딩이 경쟁 상태
+
+## DPR과 srcset
+
+### DPR이란
+
+DPR(Device Pixel Ratio)은 CSS 1픽셀을 렌더링하는 데 사용되는 물리적 픽셀의 수다.
+
+| 디바이스 | DPR |
+|----------|-----|
+| 일반 데스크톱 모니터 | 1x |
+| MacBook, iMac | 2x |
+| iPhone 13~15 | 3x |
+| Samsung Galaxy S 시리즈 | 약 3x |
+
+DPR=1 디바이스에서 160px 이미지를 보여줄 때와 DPR=2 디바이스에서 같은 이미지를 보여줄 때, 필요한 실제 픽셀 수가 다르다. DPR=1이면 160px이면 충분하지만, DPR=2에서는 320px가 필요하다.
+
+> 참고: [MDN — Window.devicePixelRatio](https://developer.mozilla.org/en-US/docs/Web/API/Window/devicePixelRatio)
+
+### srcset의 x 디스크립터
+
+`srcset` 속성의 `x` 디스크립터를 사용하면 DPR에 따라 브라우저가 자동으로 적절한 이미지를 선택한다.
+
+```html
+<img
+  src="pokemon.webp?w=160&h=160&q=85"
+  srcset="
+    pokemon.webp?w=160&h=160&q=85 1x,
+    pokemon.webp?w=320&h=320&q=85 2x
+  "
+  sizes="10rem"
+  alt="이상해씨"
+/>
+```
+
+- DPR=1 디바이스 → 160px 이미지 선택
+- DPR=2 디바이스 → 320px 이미지 선택
+- DPR=3 디바이스 → 2x 이미지를 사용 (3x를 제공하지 않으므로 가장 가까운 것을 선택)
+
+DPR 3x까지 커버하면 파일 크기가 과도해지므로, **2x까지만 제공하는 것이 비용 대비 효과적**이다. DPR=3 디바이스에서 2x 이미지를 보여줘도 시각적 차이는 거의 느끼지 못한다.
+
+> 참고: [MDN — Responsive images](https://developer.mozilla.org/en-US/docs/Learn/HTML/Multimedia_and_embedding/Responsive_images), [web.dev — Serve responsive images](https://web.dev/articles/serve-responsive-images)
+
+## rem 기반 정확한 크기 계산
+
+### 문제: 잘못된 크기 계산
+
+기존 코드에서 모바일 카드 이미지 크기를 140px로 설정하고 있었는데, 이 계산이 틀려 있었다.
+
+포케코리아는 모바일에서 루트 폰트 크기를 12px로 설정한다. 카드 이미지의 CSS 크기는 `10rem`이다.
+
+```
+데스크톱: 10rem × 16px/rem = 160px ✅
+모바일:   10rem × 12px/rem = 120px (기존 코드: 140px ❌)
+```
+
+모바일에서 120px로 표시되는 이미지에 180px짜리를 다운로드하고 있었으니, 50% 이상의 데이터가 낭비되고 있었다.
+
+### 수정된 크기 매핑
+
+| 환경 | CSS 크기 | 1rem | 실제 크기 | 1x 이미지 | 2x 이미지 |
+|------|----------|------|-----------|-----------|-----------|
+| 데스크톱 (10rem) | 10rem | 16px | 160px | 160×160 | 320×320 |
+| 모바일 (10rem) | 10rem | 12px | 120px | 120×120 | 240×240 |
+| 모바일 (8rem) | 8rem | 12px | 96px | 96×96 | 192×192 |
+| 데스크톱 (8rem) | 8rem | 16px | 128px | 128×128 | 256×256 |
+
+## srcset 자동 생성 구현
+
+ImageComponent에 `densities`와 `quality` props를 추가하고, srcset을 자동 생성하는 로직을 구현했다.
+
+```typescript
+interface ImageComponentProps extends ImgHTMLAttributes<HTMLImageElement> {
+  width: string;
+  height: string;
+  imageSize?: { width: number; height: number };
+  densities?: number[];
+  quality?: number;
+}
+```
+
+```typescript
+const generateSrcSet = () => {
+  if (!src || !densities || densities.length === 0) return undefined;
+
+  const baseUrl = src.split('?')[0];
+  const baseSize = imageSize?.width || 160;
+
+  return densities
+    .map((density) => {
+      const size = Math.round(baseSize * density);
+      return `${baseUrl}?w=${size}&h=${size}&q=${quality} ${density}x`;
+    })
+    .join(', ');
+};
+```
+
+포케코리아는 이미지 CDN을 사용하고 있어, URL 파라미터(`?w=160&h=160&q=85`)로 실시간 리사이징과 품질 조절이 가능하다. 이 점을 활용하여 클라이언트에서 URL만 조합하면 CDN이 알아서 최적화된 이미지를 반환한다.
+
+### 카드 컴포넌트 적용 예시
+
+```tsx
+// Before
+<ImageComponent
+  src={`${imageMode}/${pokemonData.number}.webp?w=240&h=240`}
+  sizes="10rem"
+  fetchPriority="high"
+/>
+
+// After
+<ImageComponent
+  imageSize={{ width: 160, height: 160 }}
+  densities={[1, 1.5]}
+  src={`${imageMode}/${pokemonData.number}.webp`}
+  sizes="10rem"
+  fetchPriority={isHighPriority ? 'high' : undefined}
+  loading={isHighPriority ? undefined : 'lazy'}
+/>
+```
+
+생성되는 HTML은 다음과 같다.
+
+```html
+<img
+  src="https://image-cdn.poke-korea.com/1.webp?w=160&h=160&q=85"
+  srcset="
+    https://image-cdn.poke-korea.com/1.webp?w=160&h=160&q=85 1x,
+    https://image-cdn.poke-korea.com/1.webp?w=240&h=240&q=85 1.5x
+  "
+  sizes="10rem"
+  loading="lazy"
+  alt="이상해씨"
+/>
+```
+
+## fetchPriority 최적화
+
+### 문제: 모든 이미지가 high
+
+기존 코드에서는 데스크톱 리스트의 첫 20개 카드 이미지에 `fetchPriority="high"`를 적용하고 있었다. 이는 브라우저에게 20개 이미지를 모두 최우선으로 다운로드하라는 요청으로, 오히려 네트워크 경쟁을 유발한다.
+
+[fetchPriority](https://web.dev/articles/fetch-priority)는 브라우저에게 상대적 우선순위 힌트를 주는 속성이다.
+
+| 값 | 의미 |
+|----|------|
+| `high` | 다른 동일 유형 리소스보다 높은 우선순위 |
+| `low` | 다른 동일 유형 리소스보다 낮은 우선순위 |
+| `auto` | 브라우저가 자동 판단 (기본값) |
+
+**LCP 이미지에만 `high`를 적용**하는 것이 핵심이다. 너무 많은 이미지에 적용하면 실질적으로 아무 이미지도 우선순위를 갖지 못하게 된다.
+
+### 적용 전략
+
+첫 화면에 보이는 이미지 수만큼만 `high`를 적용하고, 나머지는 `lazy` 로딩으로 전환했다.
+
+| 환경 | fetchPriority="high" | loading="lazy" |
+|------|---------------------|----------------|
+| 데스크톱 | 첫 15개 | 16번째부터 |
+| 모바일 | 첫 6개 (2열 × 3행) | 7번째부터 |
+
+```tsx
+<ImageComponent
+  fetchPriority={isHighPriority ? 'high' : undefined}
+  loading={isHighPriority ? undefined : 'lazy'}
+/>
+```
+
+`loading="lazy"`와 `fetchPriority="high"`는 상반되는 속성이므로 동시에 사용하지 않는다. `isHighPriority`가 `true`이면 둘 다 기본값(`undefined`)으로 두고, `false`이면 `lazy`만 적용한다.
+
+> 참고: [Chrome Developers — Fetch Priority](https://web.dev/articles/fetch-priority)
+
+## 이미지 품질 기본값
+
+기존에는 `quality=75`를 사용하고 있었는데, 포켓몬 일러스트 특성상 약간 흐릿하게 보이는 경우가 있었다. WebP 포맷에서 quality 85는 **시각적 손실이 거의 없으면서 용량 효율이 우수한 구간**이다.
+
+| Quality | 용도 | 특징 |
+|---------|------|------|
+| 60~70 | 매우 작은 썸네일 | 눈에 띄는 손실 |
+| 75~85 | 일반 카드 이미지 (권장) | 손실 미미 |
+| 85~95 | 주요 이미지 | 손실 거의 없음 |
+| 95~100 | 원본 수준 | 불필요한 용량 |
+
+기본값을 85로 변경하고, 개별 컴포넌트에서 `quality` prop을 제거하여 일관된 품질을 적용했다.
+
+> 참고: [Google Developers — WebP](https://developers.google.com/speed/webp)
+
+## 결과
+
+### 이미지 크기 비교
+
+**데스크톱 (10rem = 160px)**
+
+| DPR | Before | After | 개선 효과 |
+|-----|--------|-------|-----------|
+| DPR=1 | 240×240 (~18KB) | 160×160 (~10KB) | **44% 대역폭 감소** |
+| DPR=2 | 240×240 (~18KB) | 320×320 (~28KB) | **선명도 33% 향상** |
+
+**모바일 (10rem = 120px)**
+
+| DPR | Before | After | 개선 효과 |
+|-----|--------|-------|-----------|
+| DPR=1 | 180×180 (~14KB) | 120×120 (~8KB) | **43% 대역폭 감소** |
+| DPR=2 | 180×180 (~14KB) | 240×240 (~20KB) | **선명도 33% 향상** |
+
+DPR=1 환경에서는 불필요하게 큰 이미지를 다운로드하지 않게 되었고, DPR=2 환경에서는 오히려 더 선명한 이미지를 제공하게 되었다.
+
+### fetchPriority 최적화 효과
+
+| 환경 | Before | After |
+|------|--------|-------|
+| 데스크톱 | 20개 high | 15개 high (25% 감소) |
+| 모바일 | 6개 high | 6개 high (유지) |
+
+초기 네트워크 경쟁이 줄어들어 **LCP 이미지의 실질적인 로딩 속도가 개선**되었다. 4편에서 다룰 Lighthouse 결과에서 이 효과를 확인할 수 있다.
+
+### PageSpeed Insights
+
+- "Properly size images" 경고 해결
+- "Serve images in next-gen formats" 유지 (WebP 사용)
+- Core Web Vitals의 CLS 0 유지 (width/height 명시)
+
+> 참고: [Chrome Developers — Properly size images](https://developer.chrome.com/docs/lighthouse/performance/uses-responsive-images)
+
+## 정리하며
+
+이미지 최적화에서 가장 중요한 것은 **정확한 크기 계산**이다. rem 단위가 디바이스별로 다른 픽셀 값을 갖는다는 점을 간과하면, 의도와 다른 크기의 이미지를 제공하게 된다.
+
+이번 작업에서 적용한 전략을 정리하면 다음과 같다.
+
+| 전략 | 내용 |
+|------|------|
+| srcset + x 디스크립터 | DPR 1x/2x 대응 이미지 자동 선택 |
+| 정확한 크기 계산 | rem → px 변환으로 실제 렌더링 크기 파악 |
+| fetchPriority 제한 | 첫 화면 이미지에만 high, 나머지는 lazy |
+| 품질 기본값 통일 | quality=85로 일관된 품질 |
+| CDN 파라미터 활용 | URL만 조합하면 실시간 리사이징 |
+
+다음 편에서는 1~3편의 최적화가 실제 Lighthouse 점수에 어떤 영향을 미쳤는지 측정 결과를 비교한다.
+
+---
+
+> **포케코리아 웹 성능 최적화** 시리즈
+>
+> - 1편: Tailwind CSS 중복 500회를 @layer components로 정리하기
+> - 2편: 한글 웹폰트 서브셋팅으로 126KB 줄이기
+> - **3편: srcset과 DPR로 이미지 대역폭 44% 절감하기** *(현재 글)*
+> - 4편: Lighthouse로 검증한 최적화 전후 비교
+
+### 참고 자료
+
+- [MDN — Responsive images](https://developer.mozilla.org/en-US/docs/Learn/HTML/Multimedia_and_embedding/Responsive_images)
+- [MDN — HTMLImageElement.fetchPriority](https://developer.mozilla.org/en-US/docs/Web/API/HTMLImageElement/fetchPriority)
+- [web.dev — Serve responsive images](https://web.dev/articles/serve-responsive-images)
+- [web.dev — Fetch Priority](https://web.dev/articles/fetch-priority)
+- [Chrome Developers — Properly size images](https://developer.chrome.com/docs/lighthouse/performance/uses-responsive-images)
+- [Google Developers — WebP](https://developers.google.com/speed/webp)
