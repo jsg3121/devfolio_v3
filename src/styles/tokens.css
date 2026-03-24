@@ -19,7 +19,7 @@
 
   /* 인터랙션 */
   --color-tag-bg: #f3f4f6; /* gray-100 */
-  --color-tag-text: #6b7280; /* gray-500 */
+  --color-tag-text: #4b5563; /* gray-600 */
   --color-btn-primary-bg: #111827; /* gray-900 */
   --color-btn-primary-text: #ffffff;
   --color-btn-primary-hover: #1f2937; /* gray-800 */
@@ -44,7 +44,7 @@
 
   /* 인터랙션 */
   --color-tag-bg: #334155; /* slate-700 */
-  --color-tag-text: #94a3b8; /* slate-400 */
+  --color-tag-text: #cbd5e1; /* slate-300 */
   --color-btn-primary-bg: #e2e8f0; /* slate-200 */
   --color-btn-primary-text: #0f172a; /* slate-900 */
   --color-btn-primary-hover: #cbd5e1; /* slate-300 */

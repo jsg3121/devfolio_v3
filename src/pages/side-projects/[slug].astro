@@ -1,6 +1,7 @@
 ---
 import ArticleLayout from '@/layouts/ArticleLayout.astro';
 import ImageSlider from '@/components/common/ImageSlider.astro';
+import Tag from '@/components/common/Tag.astro';
 import { getCollection, render } from 'astro:content';
 import type { GetStaticPaths, InferGetStaticPropsType } from 'astro';
 import { SITE } from '@/lib/constants/site';
@@ -83,9 +84,7 @@ const formatDate = (date: Date): string => {
     <div class="flex flex-wrap gap-1.5 mb-6">
       {
         entry.data.skills.map((skill: string) => (
-          <span class="text-xs px-2.5 py-1 bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 rounded-full">
-            {skill}
-          </span>
+          <Tag label={skill} variant="category" />
         ))
       }
     </div>

@@ -1,4 +1,6 @@
 ---
+import Tag from '@/components/common/Tag.astro';
+
 const strengthTags = [
   'SEO / Growth',
   'Performance',
@@ -26,9 +28,7 @@ const strengthTags = [
     <div class="flex flex-wrap gap-2" data-reveal="up" data-reveal-delay="200">
       {
         strengthTags.map((tag) => (
-          <span class="text-sm px-3 py-1.5 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-400 rounded-full">
-            {tag}
-          </span>
+          <Tag label={tag} variant="category" size="md" />
         ))
       }
     </div>
