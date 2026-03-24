@@ -1,4 +1,6 @@
 ---
+import Tag from '@/components/common/Tag.astro';
+
 interface StackGroup {
   category: string;
   items: string[];
@@ -45,9 +47,7 @@ const stacks: StackGroup[] = [
             </h3>
             <div class="flex flex-wrap gap-2">
               {group.items.map((item) => (
-                <span class="text-sm px-3 py-1.5 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 rounded-full">
-                  {item}
-                </span>
+                <Tag label={item} variant="category" size="md" />
               ))}
             </div>
           </div>

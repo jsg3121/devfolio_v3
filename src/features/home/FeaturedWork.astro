@@ -1,5 +1,6 @@
 ---
 import { getFeaturedCareers } from '@/lib/content/career';
+import Tag from '@/components/common/Tag.astro';
 
 const careers = await getFeaturedCareers();
 
@@ -39,9 +40,7 @@ const formatDate = (date: Date): string => {
             </p>
             <div class="flex flex-wrap gap-2">
               {career.data.domains.map((domain: string) => (
-                <span class="text-xs px-2.5 py-1 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-400 rounded-full">
-                  {domain}
-                </span>
+                <Tag label={domain} variant="category" />
               ))}
             </div>
           </div>
