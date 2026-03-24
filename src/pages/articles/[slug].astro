@@ -8,10 +8,12 @@ import { buildCanonicalUrl } from '@/lib/seo/meta';
 
 export const getStaticPaths = (async () => {
   const articles = await getCollection('articles');
-  return articles.map((entry) => ({
-    params: { slug: entry.data.slug },
-    props: { entry },
-  }));
+  return articles
+    .filter((entry) => entry.data.published)
+    .map((entry) => ({
+      params: { slug: entry.data.slug },
+      props: { entry },
+    }));
 }) satisfies GetStaticPaths;
 
 type Props = InferGetStaticPropsType<typeof getStaticPaths>;
