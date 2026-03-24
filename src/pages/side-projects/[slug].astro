@@ -115,11 +115,22 @@ const formatDate = (date: Date): string => {
           </a>
         )
       }
+      {
+        entry.data.links &&
+          entry.data.links.map((link, index: number) => (
+            <a
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-sm text-gray-400 dark:text-slate-500 hover:text-gray-900 dark:hover:text-slate-100 transition-colors underline underline-offset-2"
+            >
+              {link.label}
+            </a>
+          ))
+      }
     </div>
   </header>
-  {entry.data.images && entry.data.images.length > 0 && (
-    <ImageSlider images={entry.data.images} />
-  )}
+  {entry.data.images && entry.data.images.length > 0 && <ImageSlider images={entry.data.images} />}
 
   <Content />
 </ArticleLayout>

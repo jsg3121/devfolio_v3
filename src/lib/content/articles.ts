@@ -11,5 +11,5 @@ export const getAllArticles = async () => {
 /** featured 아티클만 조회 */
 export const getFeaturedArticles = async () => {
   const articles = await getAllArticles();
-  return articles.filter((a) => a.data.featured);
+  return articles.filter((a) => a.data.featured).slice(0, 4);
 };

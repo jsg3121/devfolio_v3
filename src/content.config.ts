@@ -57,6 +57,10 @@ const sideProjects = defineCollection({
     updatedAt: z.coerce.date().optional(),
     repositoryUrl: z.array(z.string()).optional(),
     projectUrl: z.string().optional(),
+    links: z.array(z.object({
+      label: z.string(),
+      url: z.string(),
+    })).optional(),
     coverImage: z.string().optional(),
     coverAlt: z.string().optional(),
     images: z.array(z.object({
