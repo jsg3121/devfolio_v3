@@ -230,7 +230,7 @@ const hasMultiple = images.length > 1;
     const nextBtn = document.querySelector('.lightbox-next') as HTMLButtonElement | null;
     const counter = document.querySelector('.lightbox-counter') as HTMLElement | null;
 
-    if (!lightbox || !lightboxImage) return;
+    if (!lightbox || !lightboxImage) return () => {};
 
     const imageButtons = document.querySelectorAll('.slider-image-btn');
     const images: { src: string; alt: string }[] = [];
@@ -272,33 +272,52 @@ const hasMultiple = images.length > 1;
       updateLightbox();
     };
 
-    imageButtons.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const index = Number((btn as HTMLElement).dataset.imageIndex);
-        open(index);
-      });
-    });
+    const handleImageButtonClick = (event: Event) => {
+      const btn = event.currentTarget as HTMLElement;
+      const index = Number(btn.dataset.imageIndex);
+      open(index);
+    };
 
-    closeBtn?.addEventListener('click', close);
-    prevBtn?.addEventListener('click', () => goTo(currentIndex - 1));
-    nextBtn?.addEventListener('click', () => goTo(currentIndex + 1));
+    const handleCloseClick = () => close();
+    const handlePrevClick = () => goTo(currentIndex - 1);
+    const handleNextClick = () => goTo(currentIndex + 1);
 
-    lightbox.addEventListener('click', (e) => {
+    const handleLightboxClick = (e: MouseEvent) => {
       if (e.target === lightbox) close();
-    });
+    };
 
-    document.addEventListener('keydown', (e) => {
+    const handleKeydown = (e: KeyboardEvent) => {
       if (!isOpen()) return;
       if (e.key === 'Escape') close();
       if (e.key === 'ArrowLeft') goTo(currentIndex - 1);
       if (e.key === 'ArrowRight') goTo(currentIndex + 1);
-    });
+    };
+
+    imageButtons.forEach((btn) => btn.addEventListener('click', handleImageButtonClick));
+    closeBtn?.addEventListener('click', handleCloseClick);
+    prevBtn?.addEventListener('click', handlePrevClick);
+    nextBtn?.addEventListener('click', handleNextClick);
+    lightbox.addEventListener('click', handleLightboxClick);
+    document.addEventListener('keydown', handleKeydown);
+
+    return () => {
+      imageButtons.forEach((btn) => btn.removeEventListener('click', handleImageButtonClick));
+      closeBtn?.removeEventListener('click', handleCloseClick);
+      prevBtn?.removeEventListener('click', handlePrevClick);
+      nextBtn?.removeEventListener('click', handleNextClick);
+      lightbox.removeEventListener('click', handleLightboxClick);
+      document.removeEventListener('keydown', handleKeydown);
+    };
   };
 
-  initSlider();
-  initLightbox();
-  document.addEventListener('astro:after-swap', () => {
+  let cleanup = () => {};
+
+  document.addEventListener('astro:page-load', () => {
     initSlider();
-    initLightbox();
+    cleanup = initLightbox();
+  });
+
+  document.addEventListener('astro:before-swap', () => {
+    cleanup();
   });
 </script>
