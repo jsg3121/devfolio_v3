@@ -5,7 +5,7 @@ import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  site: 'https://sunggyu-jang.dev',
+  site: 'https://sungyujang.com',
   integrations: [mdx(), sitemap()],
   vite: {
     plugins: [tailwindcss()],
