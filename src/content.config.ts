@@ -32,7 +32,7 @@ const articles = defineCollection({
     skills: z.array(z.string()),
     categories: z.array(z.string()),
     publishedAt: z.coerce.date(),
-    featured: z.boolean().default(false),
+    featured: z.boolean().default(true),
     published: z.boolean().default(true),
     order: z.number(),
     coverImage: z.string().optional(),

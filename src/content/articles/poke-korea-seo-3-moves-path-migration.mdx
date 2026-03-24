@@ -1,0 +1,294 @@
+---
+title: '포케코리아 SEO 개선기 3편 — 기술 도감 URL 마이그레이션과 Context 전환'
+slug: 'poke-korea-seo-3-moves-path-migration'
+summary: '포켓몬 기술 도감 페이지의 버전 선택과 기술 유형 쿼리 파라미터를 Path 기반 URL로 전환하고, useSearchParams를 제거하여 Context 기반 데이터 흐름으로 개선한 과정을 정리합니다.'
+tags:
+  - 'seo'
+  - 'nextjs'
+  - 'url-structure'
+  - 'refactoring'
+skills:
+  - 'nextjs'
+  - 'typescript'
+categories:
+  - 'seo'
+publishedAt: '2026-02-09'
+featured: true
+published: true
+order: 4
+seoTitle: '기술 도감 URL 마이그레이션과 Context 전환 — 포케코리아 SEO 개선기 3편'
+seoDescription: 'Next.js App Router에서 useSearchParams를 제거하고 Server → Client Context 패턴으로 전환하여 Suspense 의존을 제거하고 SEO 일관성을 확보한 과정을 정리합니다.'
+---
+
+## 들어가며
+
+> 이 글은 **포케코리아 SEO 개선기** 시리즈의 마지막 글입니다.
+>
+> 1편 Path URL 전환 → 2편 JSON-LD 구조화 데이터 → 3편 기술 도감 URL 마이그레이션
+
+1편에서 포켓몬 상세 페이지의 `activeType`/`activeIndex` 쿼리 파라미터를 Path 기반으로 전환했다. 하지만 기술(moves) 도감 페이지에는 아직 두 개의 쿼리 파라미터가 남아 있었다.
+
+```
+/detail/{id}/moves?selectVersion=5&movesType=MACHINE
+/detail/{id}/moves/form/1?selectVersion=5&movesType=MACHINE
+/detail/{id}/moves/region/0?selectVersion=5
+```
+
+`selectVersion`(버전 선택)과 `movesType`(레벨업/기술머신 구분)이 쿼리 파라미터로 처리되고 있었다. 1편에서 확립한 원칙 — **콘텐츠가 달라지면 Path로** — 에 따라 이 두 파라미터도 Path 기반으로 전환하기로 했다.
+
+## URL 구조 설계
+
+### Before와 After
+
+```
+# Before (쿼리 파라미터)
+/detail/{id}/moves?selectVersion=5&movesType=MACHINE
+/detail/{id}/moves/form/1?selectVersion=5&movesType=MACHINE
+/detail/{id}/moves/region/0?selectVersion=5
+
+# After (Path 기반)
+/detail/{id}/moves/version/5/machine
+/detail/{id}/moves/form/1/version/5/machine
+/detail/{id}/moves/region/0/version/5
+```
+
+기본값(최신 버전, LEVELUP)은 Path에 포함하지 않도록 설계했다. `/detail/{id}/moves`가 곧 "최신 버전 + LEVELUP"을 의미한다.
+
+### 전체 URL 패턴
+
+| URL | 의미 |
+|-----|------|
+| `/detail/{id}/moves` | 기본 (최신 버전, LEVELUP) |
+| `/detail/{id}/moves/machine` | 최신 버전, MACHINE |
+| `/detail/{id}/moves/version/{versionGroupId}` | 특정 버전, LEVELUP |
+| `/detail/{id}/moves/version/{versionGroupId}/machine` | 특정 버전, MACHINE |
+| `/detail/{id}/moves/form/{index}/version/{versionGroupId}` | 폼체인지 + 버전 선택 |
+| `/detail/{id}/moves/region/{index}/version/{versionGroupId}/machine` | 리전폼 + 버전 + MACHINE |
+
+## 파싱 유틸리티 설계
+
+### 서버/클라이언트 공유 가능한 순수 함수
+
+URL 파싱 로직을 `movesParams.module.ts`에 순수 함수로 작성했다. `"use client"` 선언 없이 작성하면 Server Component와 Client Component 양쪽에서 import할 수 있다.
+
+```typescript
+// src/module/movesParams.module.ts
+
+/** form/region 라우트의 [[...segments]] 파싱 */
+const parseFormSegments = (segments?: string[]) => {
+  // /form/1                    → { index: 1 }
+  // /form/1/version/5          → { index: 1, versionGroupId: 5 }
+  // /form/1/version/5/machine  → { index: 1, versionGroupId: 5, movesType: 'MACHINE' }
+  // ...
+};
+
+/** Path 기반 URL 빌더 */
+const buildMovesPath = (params: {
+  pokemonId: string;
+  formType?: 'form' | 'region';
+  formIndex?: number;
+  versionGroupId?: number;
+  movesType?: 'LEVELUP' | 'MACHINE';
+}) => {
+  // URL 문자열 생성
+};
+```
+
+두 함수 모두 순수 함수이므로 입출력이 직렬화 가능한 데이터뿐이다. 서버에서는 page.tsx의 params 파싱에, 클라이언트에서는 네비게이션 URL 생성에 동일하게 사용된다.
+
+> 참고: [Next.js — Server and Client Composition Patterns](https://nextjs.org/docs/app/building-your-application/rendering/composition-patterns)
+
+## useSearchParams 제거와 Context 전환
+
+### useSearchParams의 문제
+
+기존에는 `MovesHeader`, `MovesTableContainer` 등 클라이언트 컴포넌트에서 `useSearchParams()`로 `selectVersion`과 `movesType` 값을 읽고 있었다.
+
+Next.js App Router에서 [`useSearchParams`](https://nextjs.org/docs/app/api-reference/functions/use-search-params)를 사용하면 해당 컴포넌트를 반드시 `<Suspense>` boundary로 감싸야 한다. 감싸지 않으면 페이지 전체가 Client-side Rendering으로 전환되어 정적 최적화가 무력화된다.
+
+```tsx
+// Before — Suspense 관리 부담
+<Suspense fallback={<Loading />}>
+  <MovesHeader />  {/* useSearchParams 사용 */}
+</Suspense>
+<Suspense fallback={<Loading />}>
+  <MovesTableContainer />  {/* useSearchParams 사용 */}
+</Suspense>
+```
+
+### Server → Client Context 패턴
+
+해결 방법은 서버에서 URL을 파싱한 뒤, Context를 통해 클라이언트 컴포넌트에 전달하는 것이다.
+
+**1단계: Context 확장**
+
+`DetailMovesContext`에 두 필드를 추가했다.
+
+```typescript
+// src/context/DetailMoves.context.tsx
+interface DetailMovesContextType {
+  // 기존 필드들...
+  currentVersionGroupId?: number;
+  currentMovesType?: 'LEVELUP' | 'MACHINE';
+}
+```
+
+**2단계: Server Component에서 파싱 후 주입**
+
+```typescript
+// page.tsx (Server Component)
+const Page = async ({ params }: PageProps) => {
+  const { versionGroupId, movesType } = parseFormSegments(params.segments);
+  const data = await fetchMovesData(params.pokemonId, versionGroupId, movesType);
+
+  return (
+    <DetailMovesProvider
+      value={{ currentVersionGroupId: versionGroupId, currentMovesType: movesType }}
+    >
+      <MovesHeader />
+      <MovesTableContainer />
+    </DetailMovesProvider>
+  );
+};
+```
+
+**3단계: 클라이언트에서 Context로 읽기**
+
+```typescript
+// MovesHeader.container.tsx ("use client")
+const MovesHeader = () => {
+  const { currentVersionGroupId, currentMovesType } = useDetailMovesContext();
+  // useSearchParams() 호출 제거
+  // Suspense boundary 불필요
+};
+```
+
+### 전환 효과 비교
+
+| 관점 | useSearchParams | Context 패턴 |
+|------|----------------|-------------|
+| Suspense | 필수 | 불필요 |
+| 정적 최적화 | CSR 전환 위험 | SSG/ISR 유지 |
+| 데이터 흐름 | 클라이언트에서 URL 파싱 | 서버에서 파싱 후 전달 |
+| 캐싱 | 쿼리 문자열 CDN 미스 가능 | Path 기반 CDN 적중률 향상 |
+
+> 참고: [Next.js — useSearchParams](https://nextjs.org/docs/app/api-reference/functions/use-search-params)
+
+## 새 라우트 파일 구조
+
+기존 3개 라우트에 3개를 추가하여 총 6개 라우트로 확장했다.
+
+| 파일 | 용도 | 신규/기존 |
+|------|------|-----------|
+| `moves/page.tsx` | 기본 (최신 버전, LEVELUP) | 기존 (수정) |
+| `moves/machine/page.tsx` | 최신 버전, MACHINE | **신규** |
+| `moves/version/[versionGroupId]/page.tsx` | 특정 버전, LEVELUP | **신규** |
+| `moves/version/[versionGroupId]/machine/page.tsx` | 특정 버전, MACHINE | **신규** |
+| `moves/form/[[...segments]]/page.tsx` | 폼체인지 | 기존 (수정) |
+| `moves/region/[[...segments]]/page.tsx` | 리전폼 | 기존 (수정) |
+
+기존 `form`과 `region` 라우트에서는 `[[...index]]`를 `[[...segments]]`로 리네이밍했다. index뿐 아니라 version과 machine 세그먼트도 파싱해야 하기 때문이다.
+
+## 301 리다이렉트와 캐싱
+
+### 레거시 URL 리다이렉트
+
+[`next.config.js`의 `redirects`](https://nextjs.org/docs/app/api-reference/config/next-config-js/redirects)에 `has` 옵션으로 쿼리 파라미터를 매칭하여 새 Path URL로 301 리다이렉트를 설정했다.
+
+```javascript
+// next.config.js
+{
+  source: '/detail/:pokemonId/moves',
+  has: [
+    { type: 'query', key: 'selectVersion', value: '(?<version>.+)' },
+    { type: 'query', key: 'movesType', value: 'MACHINE' },
+  ],
+  destination: '/detail/:pokemonId/moves/version/:version/machine',
+  permanent: true,
+},
+{
+  source: '/detail/:pokemonId/moves',
+  has: [
+    { type: 'query', key: 'selectVersion', value: '(?<version>.+)' },
+  ],
+  destination: '/detail/:pokemonId/moves/version/:version',
+  permanent: true,
+},
+{
+  source: '/detail/:pokemonId/moves',
+  has: [
+    { type: 'query', key: 'movesType', value: 'MACHINE' },
+  ],
+  destination: '/detail/:pokemonId/moves/machine',
+  permanent: true,
+},
+```
+
+추가로 page.tsx 내부에서도 `redirect()` 함수로 이중 처리하여 엣지 케이스를 커버했다.
+
+### 캐싱 헤더
+
+새로 생성된 Path 기반 라우트에 [`next.config.js`의 `headers`](https://nextjs.org/docs/app/api-reference/config/next-config-js/headers)를 통해 1년 캐시 헤더를 설정했다. 포켓몬 기술 데이터는 거의 변하지 않으므로 긴 캐시가 적절하다.
+
+```javascript
+{
+  source: '/detail/:pokemonId/moves/version/:versionGroupId',
+  headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000' }],
+},
+```
+
+## 클라이언트 컴포넌트 수정
+
+총 6개 클라이언트 컴포넌트에서 `useSearchParams` 호출을 제거하고 Context로 전환했다.
+
+| 컴포넌트 | 변경 내용 |
+|----------|-----------|
+| Desktop `MovesHeader` | `?selectVersion=X` → `/version/X` Path 기반, Context에서 버전 읽기 |
+| Mobile `MovesHeader` | 동일 |
+| Desktop `MovesTableContainer` | `?movesType=X` → Path 기반 네비게이션, Context 사용 |
+| Mobile `MovesTableContainer` | 동일 |
+| Desktop `MachineLearnableSkill` | `?movesType=MACHINE` → `/machine` |
+| Mobile `MachineLearnableSkill` | 동일 |
+
+모든 컴포넌트에서 `buildMovesPath` 유틸리티를 사용하여 URL을 생성하므로, URL 구조가 변경되어도 유틸리티 함수 한 곳만 수정하면 된다.
+
+## 결과
+
+| 항목 | Before | After |
+|------|--------|-------|
+| 쿼리 파라미터 | `selectVersion`, `movesType` 2개 | 0개 |
+| Path 기반 라우트 | 3개 | 6개 |
+| canonical URL 쿼리 파라미터 | 있음 | 없음 (완전 Path 기반) |
+| `useSearchParams` 사용 | MovesHeader 2개, MovesTable 2개 | 0개 |
+| Suspense boundary | 필요 | 불필요 |
+| 수정 파일 | — | 15개 |
+
+## 시리즈를 마치며
+
+3편에 걸쳐 다룬 SEO 개선을 정리하면 다음과 같다.
+
+| 편 | 핵심 작업 | 수정 규모 |
+|----|-----------|-----------|
+| 1편 | 상세 페이지 쿼리 파라미터 → Path URL | 30개+ 파일 |
+| 2편 | JSON-LD 구조화 데이터 12가지 개선 | 30개 파일 |
+| 3편 | 기술 도감 URL 마이그레이션 + Context 전환 | 15개 파일 |
+
+세 편 모두에 공통되는 원칙은 **검색엔진이 페이지의 의미를 정확히 파악할 수 있게 돕는 것**이다. Path 기반 URL은 페이지의 계층 구조를 명확히 하고, JSON-LD는 페이지의 콘텐츠를 구조화하며, canonical URL 정규화는 중복 인덱싱을 방지한다.
+
+기술적으로는 `useSearchParams`에서 Context 패턴으로의 전환이 가장 의미 있었다. Suspense 의존을 제거하고, 서버에서 파싱 → 클라이언트에서 소비하는 단방향 데이터 흐름을 확립한 것은 SEO뿐 아니라 코드 구조 개선에도 큰 도움이 되었다.
+
+---
+
+> **포케코리아 SEO 개선기** 시리즈
+>
+> - [1편: 쿼리 파라미터에서 Path URL로 전환하기](/articles/poke-korea-seo-1-path-url-migration)
+> - [2편: JSON-LD 구조화 데이터로 검색 노출 강화하기](/articles/poke-korea-seo-2-structured-data)
+> - **3편: 기술 도감 URL 마이그레이션과 Context 전환** *(현재 글)*
+
+### 참고 자료
+
+- [Next.js — useSearchParams](https://nextjs.org/docs/app/api-reference/functions/use-search-params)
+- [Next.js — Server and Client Composition Patterns](https://nextjs.org/docs/app/building-your-application/rendering/composition-patterns)
+- [Next.js — Dynamic Routes (Catch-all)](https://nextjs.org/docs/app/building-your-application/routing/dynamic-routes#optional-catch-all-segments)
+- [Next.js — Redirects](https://nextjs.org/docs/app/api-reference/config/next-config-js/redirects)
+- [Next.js — Headers](https://nextjs.org/docs/app/api-reference/config/next-config-js/headers)
