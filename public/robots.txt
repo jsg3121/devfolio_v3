@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://sunggyu-jang.dev/sitemap-index.xml
+Sitemap: https://sungyujang.com/sitemap-index.xml
