@@ -18,7 +18,7 @@ const articles = await getFeaturedArticles();
         articles.map((article, index) => (
           <a
             href={`/articles/${article.data.slug}`}
-            class="min-h-40 hover-lift block group bg-white dark:bg-slate-800 rounded-xl p-6 border border-gray-100 dark:border-slate-700"
+            class="h-fit md:min-h-40 hover-lift block group bg-white dark:bg-slate-800 rounded-xl p-6 border border-gray-100 dark:border-slate-700"
             data-reveal="up"
             data-reveal-delay={String(index * 100)}
             transition:name={`article-card-${article.data.slug}`}
@@ -28,10 +28,10 @@ const articles = await getFeaturedArticles();
                 <Tag label={category} variant="category" />
               ))}
             </div>
-            <h3 class="min-h-[calc(100%-3.5rem)] text-lg font-semibold text-gray-900 dark:text-slate-100 mb-2 group-hover:text-gray-600 dark:group-hover:text-slate-300 transition-colors">
+            <h3 class="h-fit md:min-h-[calc(100%-3.5rem)] text-lg font-semibold text-gray-900 dark:text-slate-100 mb-2 group-hover:text-gray-600 dark:group-hover:text-slate-300 transition-colors">
               {article.data.title}
             </h3>
-            <div class="w-full h-5 flex items-center justify-between">
+            <div class="w-full min-h-5 flex items-center justify-between">
               <div class="flex flex-wrap gap-1.5">
                 {article.data.tags.slice(0, 3).map((tag: string) => (
                   <Tag label={tag} />
