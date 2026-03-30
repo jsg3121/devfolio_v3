@@ -3,7 +3,7 @@
 ## 프로젝트 개요
 
 프론트엔드 개발자 장선규의 경력 아카이브형 포트폴리오 사이트.
-기획 상세는 `.claude/portfolio_ia.md` 참고.
+기획 상세는 `.claude/docs/portfolio_ia.md` 참고.
 
 ## 기술 스택
 
@@ -246,8 +246,8 @@ src/
 
 ## 참고 문서
 
-- 사이트 기획 (IA): `.claude/portfolio_ia.md`
-- 폴더 구조 및 콘텐츠 스키마: `.claude/portfolio_astro_folder_structure_and_content_schema.md`
+- 사이트 기획 (IA): `.claude/docs/portfolio_ia.md`
+- 폴더 구조 및 콘텐츠 스키마: `.claude/docs/portfolio_astro_folder_structure_and_content_schema.md`
 - 의사결정 기록: `.claude/decisions/`
 - 커스텀 명령어: `.claude/commands/`
 
