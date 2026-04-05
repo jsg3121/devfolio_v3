@@ -76,7 +76,7 @@ JSX 파싱
 └─ Virtual DOM → Real DOM 반영
 ```
 
-즉, React의 `onClick`은 **문법적 설탕(syntactic sugar)**이다. 내부적으로는 `addEventListener`를 사용하며, 이를 가능하게 하는 것이 **클라이언트에서 상주하는 React 런타임**이다.
+즉, React의 `onClick`은 **문법적 설탕**(syntactic sugar)이다. 내부적으로는 `addEventListener`를 사용하며, 이를 가능하게 하는 것이 **클라이언트에서 상주하는 React 런타임**이다.
 
 Astro에는 이 런타임이 존재하지 않으므로, 템플릿에서 `onClick={handler}`를 작성해도 빌드 결과물에 함수 참조가 포함되지 않는다.
 
