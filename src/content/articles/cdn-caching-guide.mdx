@@ -1,0 +1,546 @@
+---
+title: 'CDN 캐싱 완벽 가이드 — 엣지 서버, 캐시 제어, 무효화 전략'
+slug: 'cdn-caching-guide'
+summary: 'CDN의 개념부터 엣지 캐싱 동작 원리, 캐시 제어 헤더, 무효화 전략, 프론트엔드 배포 패턴까지 정리합니다.'
+tags:
+  - 'cdn'
+  - 'caching'
+  - 'performance'
+  - 'deployment'
+  - 'edge'
+  - 'cache-control'
+skills:
+  - 'web'
+  - 'performance'
+categories:
+  - 'web'
+publishedAt: '2026-04-12'
+featured: true
+published: true
+order: 15
+seoTitle: 'CDN 캐싱 완벽 가이드 — 엣지 서버, 캐시 제어, 무효화 전략'
+seoDescription: 'CDN 동작 원리, 엣지 캐싱, s-maxage, 캐시 무효화, 프론트엔드 배포 전략까지 정리합니다.'
+---
+
+## 들어가며
+
+이전 글에서 브라우저 캐싱의 동작 원리를 살펴봤다. 이번 글에서는 한 단계 더 나아가 CDN(Content Delivery Network) 캐싱을 다룬다.
+
+CDN은 전 세계에 분산된 서버를 통해 사용자에게 콘텐츠를 더 빠르게 전달한다. 프론트엔드 개발자라면 배포 과정에서 자연스럽게 CDN을 접하게 되는데, 캐싱 동작을 제대로 이해하지 않으면 "배포했는데 반영이 안 돼요" 같은 문제를 겪기 쉽다.
+
+## CDN이란?
+
+### CDN의 정의
+
+**CDN(Content Delivery Network)** 은 지리적으로 분산된 서버 네트워크다. 사용자와 가까운 서버에서 콘텐츠를 제공해 응답 속도를 높이고, 원본 서버의 부하를 줄인다.
+
+```text
+CDN 없이:
+한국 사용자 ──────────────────────────> 미국 서버
+           (왕복 200ms+)
+
+CDN 사용:
+한국 사용자 ────> 한국 엣지 서버 ──────> 미국 오리진 서버
+           (20ms)        (캐시 히트 시 요청 안 함)
+```
+
+### 핵심 용어 정리
+
+CDN을 이해하려면 몇 가지 용어를 알아야 한다.
+
+**오리진 서버(Origin Server)**
+
+원본 콘텐츠가 있는 서버다. 우리가 배포한 애플리케이션이 실제로 호스팅되는 곳이다.
+
+**엣지 서버(Edge Server)**
+
+사용자와 가까운 위치에 있는 CDN 서버다. 오리진의 콘텐츠를 캐싱해두고, 사용자 요청에 응답한다.
+
+**POP(Point of Presence)**
+
+엣지 서버가 위치한 데이터센터다. 주요 CDN들은 전 세계 수십~수백 개의 POP를 운영한다. 예를 들어 Cloudflare는 300개 이상의 도시에 POP가 있다.
+
+```text
+[오리진 서버 - 미국]
+        │
+        ▼
+┌───────────────────────────────────────┐
+│              CDN 네트워크              │
+│  ┌─────┐   ┌─────┐   ┌─────┐         │
+│  │ POP │   │ POP │   │ POP │   ...   │
+│  │ 서울 │   │ 도쿄 │   │ 싱가포르│         │
+│  └─────┘   └─────┘   └─────┘         │
+└───────────────────────────────────────┘
+        │
+        ▼
+    [사용자]
+```
+
+### 왜 CDN이 필요한가?
+
+**1. 지연 시간(Latency) 감소**
+
+빛의 속도에도 한계가 있다. 한국에서 미국 서버까지 물리적 거리만으로도 최소 100ms의 지연이 발생한다. CDN을 사용하면 가까운 엣지 서버에서 응답하므로 지연 시간이 크게 줄어든다.
+
+**2. 오리진 서버 부하 분산**
+
+수백만 사용자가 동시에 접속해도 요청이 여러 엣지 서버로 분산된다. 오리진 서버는 캐시 미스가 발생할 때만 요청을 받는다.
+
+**3. 가용성 향상**
+
+오리진 서버에 장애가 발생해도 엣지에 캐시된 콘텐츠는 계속 서비스할 수 있다. 일부 CDN은 오리진 장애 시 stale 콘텐츠를 제공하는 기능도 지원한다.
+
+**4. 보안**
+
+CDN은 DDoS 공격 방어, WAF(Web Application Firewall) 등 보안 기능을 제공한다. 공격 트래픽이 오리진까지 도달하기 전에 엣지에서 차단할 수 있다.
+
+## CDN 캐싱 동작 원리
+
+### 요청 흐름
+
+사용자가 CDN을 통해 리소스를 요청할 때 일어나는 과정을 살펴보자.
+
+```text
+1. 캐시 미스 (Cold Start)
+   사용자 → 엣지: "bundle.js 주세요"
+   엣지: "캐시에 없네..."
+   엣지 → 오리진: "bundle.js 주세요"
+   오리진 → 엣지: "여기 있어요 (+ Cache-Control 헤더)"
+   엣지: 파일을 캐시에 저장
+   엣지 → 사용자: "여기 있어요"
+
+2. 캐시 히트
+   사용자 → 엣지: "bundle.js 주세요"
+   엣지: "캐시에 있고, 유효하네"
+   엣지 → 사용자: "여기 있어요"
+   (오리진에 요청하지 않음)
+```
+
+### 캐시 히트와 캐시 미스
+
+**캐시 히트(Cache Hit)**
+
+요청한 리소스가 엣지 서버의 캐시에 있고, 아직 유효한 경우다. 오리진 서버에 요청하지 않고 바로 응답한다. 응답 헤더에서 확인할 수 있다.
+
+```text
+# Cloudflare 예시
+cf-cache-status: HIT
+
+# AWS CloudFront 예시
+x-cache: Hit from cloudfront
+```
+
+**캐시 미스(Cache Miss)**
+
+캐시에 리소스가 없거나 만료된 경우다. 엣지 서버가 오리진에서 리소스를 가져와 캐시에 저장한 후 응답한다.
+
+```text
+# Cloudflare 예시
+cf-cache-status: MISS
+
+# AWS CloudFront 예시
+x-cache: Miss from cloudfront
+```
+
+### 캐시 히트율(Cache Hit Ratio)
+
+캐시 히트율은 전체 요청 중 캐시에서 처리된 비율이다.
+
+```text
+캐시 히트율 = (캐시 히트 수 / 전체 요청 수) × 100
+```
+
+일반적으로 정적 자산(JS, CSS, 이미지)은 90% 이상의 히트율을 목표로 한다. 히트율이 낮다면 캐시 설정을 점검해봐야 한다.
+
+### POP 간 캐시 독립성
+
+중요한 점은 각 POP의 캐시가 독립적이라는 것이다.
+
+```text
+사용자 A (서울) → 서울 POP: 캐시 미스 → 오리진 요청 → 캐시 저장
+사용자 B (도쿄) → 도쿄 POP: 캐시 미스 → 오리진 요청 → 캐시 저장
+사용자 C (서울) → 서울 POP: 캐시 히트!
+```
+
+서울 POP에 캐시가 있어도 도쿄 POP에는 없을 수 있다. 이 때문에 새로 배포한 직후에는 각 POP에서 캐시 미스가 발생하면서 오리진 요청이 증가한다. 이를 **캐시 워밍(Cache Warming)** 이라고 한다.
+
+일부 CDN은 Shield 또는 Origin Shield 기능을 제공한다. 여러 POP가 공유하는 중간 캐시 계층을 두어 오리진 요청을 줄이는 방식이다.
+
+```text
+[사용자] → [엣지 POP] → [Shield POP] → [오리진]
+                              ↑
+                    여러 엣지 POP가 공유
+```
+
+## CDN 캐시 제어
+
+### Cache-Control 헤더 복습
+
+브라우저 캐싱 글에서 다룬 Cache-Control 헤더는 CDN에도 적용된다.
+
+```text
+Cache-Control: max-age=3600, public
+```
+
+- `max-age=3600`: 3600초(1시간) 동안 캐시 유효
+- `public`: 공유 캐시(CDN)에 저장 가능
+
+### s-maxage: CDN 전용 캐시 시간
+
+`s-maxage`는 공유 캐시(CDN)에만 적용되는 max-age다. 브라우저와 CDN의 캐시 시간을 다르게 설정할 수 있다.
+
+```text
+Cache-Control: max-age=0, s-maxage=86400
+```
+
+이 설정의 의미:
+- 브라우저: 캐시하지 않음 (매번 요청)
+- CDN: 24시간 동안 캐시
+
+왜 이런 설정이 필요할까? HTML 파일을 예로 들어보자.
+
+```text
+시나리오: 긴급 공지를 표시해야 하는 상황
+
+[s-maxage 없이 max-age=3600인 경우]
+- 브라우저도 1시간 캐시, CDN도 1시간 캐시
+- CDN 캐시를 무효화해도 브라우저 캐시가 남아있음
+- 사용자가 강력 새로고침하기 전까지 공지가 안 보임
+
+[max-age=0, s-maxage=3600인 경우]
+- 브라우저는 매번 CDN에 요청
+- CDN 캐시를 무효화하면 즉시 반영
+- 긴급 상황에 빠르게 대응 가능
+```
+
+### private vs public
+
+```text
+Cache-Control: private, max-age=3600
+```
+
+- `private`: 브라우저에만 캐시, CDN에는 캐시하지 않음
+- `public`: 브라우저와 CDN 모두 캐시 가능
+
+사용자별로 다른 콘텐츠(개인정보, 인증된 페이지 등)는 반드시 `private`으로 설정해야 한다. 그렇지 않으면 A 사용자의 데이터가 CDN에 캐시되어 B 사용자에게 노출될 수 있다.
+
+```text
+# 올바른 예: 사용자 프로필 API
+Cache-Control: private, max-age=60
+
+# 잘못된 예: CDN에 캐시되면 다른 사용자에게 노출됨
+Cache-Control: public, max-age=60
+```
+
+### CDN 전용 헤더
+
+표준 Cache-Control 외에 CDN 벤더별 전용 헤더도 있다.
+
+**Surrogate-Control**
+
+CDN에만 적용되는 캐시 지시자다. CDN이 이 헤더를 처리한 후 제거하므로 브라우저에는 전달되지 않는다.
+
+```text
+Surrogate-Control: max-age=86400
+Cache-Control: max-age=0
+```
+
+**CDN-Cache-Control**
+
+Cloudflare, Fastly 등에서 지원하는 헤더다. Surrogate-Control과 비슷한 역할을 한다.
+
+```text
+CDN-Cache-Control: max-age=86400
+```
+
+**우선순위**
+
+일반적으로 CDN은 다음 순서로 캐시 지시자를 확인한다.
+
+```text
+1. CDN 전용 헤더 (Surrogate-Control, CDN-Cache-Control)
+2. Cache-Control의 s-maxage
+3. Cache-Control의 max-age
+4. Expires 헤더
+```
+
+### Vary 헤더와 CDN
+
+`Vary` 헤더는 캐시 키에 포함할 요청 헤더를 지정한다.
+
+```text
+Vary: Accept-Encoding
+```
+
+이 설정은 `Accept-Encoding` 값에 따라 다른 캐시를 저장하라는 의미다.
+
+```text
+요청 1: Accept-Encoding: gzip → 캐시 키: /bundle.js + gzip
+요청 2: Accept-Encoding: br   → 캐시 키: /bundle.js + br
+```
+
+주의할 점은 `Vary: *`나 너무 많은 헤더를 지정하면 캐시 효율이 떨어진다는 것이다. `Vary: User-Agent`는 특히 피해야 한다. User-Agent 값은 수천 가지가 넘기 때문에 사실상 캐시가 안 되는 것과 같다.
+
+## 캐시 무효화(Invalidation)
+
+### 캐시 무효화가 필요한 상황
+
+배포 후 CDN에 캐시된 이전 버전을 제거해야 할 때가 있다.
+
+- 긴급 버그 수정 배포
+- 보안 취약점 패치
+- 잘못된 콘텐츠 수정
+
+### Purge와 Invalidation
+
+**Purge**
+
+캐시에서 특정 리소스를 즉시 삭제한다. 다음 요청 시 오리진에서 새로 가져온다.
+
+```bash
+# Cloudflare API 예시
+curl -X POST "https://api.cloudflare.com/client/v4/zones/{zone_id}/purge_cache" \
+  -H "Authorization: Bearer {token}" \
+  -d '{"files":["https://example.com/bundle.js"]}'
+```
+
+**Invalidation**
+
+캐시를 "만료됨"으로 표시한다. 캐시가 즉시 삭제되지는 않지만, 다음 요청 시 오리진에서 새 버전을 확인한다.
+
+```bash
+# AWS CloudFront 예시
+aws cloudfront create-invalidation \
+  --distribution-id {distribution_id} \
+  --paths "/bundle.js" "/index.html"
+```
+
+### 캐시 무효화의 한계
+
+캐시 무효화에는 몇 가지 한계가 있다.
+
+**1. 전파 시간**
+
+모든 POP에 무효화가 전파되는 데 시간이 걸린다. 보통 수 초에서 수 분이 소요된다.
+
+**2. 비용**
+
+일부 CDN은 무효화 요청에 비용을 부과한다. AWS CloudFront는 월 1,000건까지 무료, 이후 건당 $0.005다.
+
+**3. 브라우저 캐시는 무효화할 수 없음**
+
+CDN 캐시를 무효화해도 브라우저에 이미 캐시된 리소스는 제어할 수 없다. 이 때문에 파일 버저닝이 중요하다.
+
+### 파일 버저닝 vs 캐시 무효화
+
+실무에서는 캐시 무효화보다 **파일 버저닝**을 권장한다.
+
+```text
+# 캐시 무효화 방식
+/bundle.js → 배포 시 purge 요청
+
+# 파일 버저닝 방식
+/bundle.a1b2c3.js → 새 배포 시 파일명 자체가 변경됨
+```
+
+파일 버저닝의 장점:
+- 캐시 무효화 요청 불필요
+- 즉시 반영 (새 파일명이므로 캐시 미스)
+- 롤백이 쉬움 (이전 버전 파일이 그대로 있음)
+
+대부분의 빌드 도구(Vite, Webpack)는 기본적으로 콘텐츠 해시를 파일명에 포함한다.
+
+```javascript
+// vite.config.js
+export default {
+  build: {
+    rollupOptions: {
+      output: {
+        // bundle.a1b2c3d4.js 형태로 생성
+        entryFileNames: '[name].[hash].js',
+        chunkFileNames: '[name].[hash].js',
+        assetFileNames: '[name].[hash].[ext]'
+      }
+    }
+  }
+}
+```
+
+## 주요 CDN 서비스 비교
+
+프론트엔드 배포에 자주 사용되는 CDN들을 간략히 비교해보자.
+
+### Cloudflare
+
+- **특징**: 무료 플랜 제공, 300+ 글로벌 POP
+- **캐시 제어**: Cache-Control, CDN-Cache-Control 지원
+- **무효화**: API로 즉시 purge 가능 (무료)
+- **추가 기능**: Workers(엣지 컴퓨팅), 보안, 이미지 최적화
+
+```text
+# Cloudflare 캐시 상태 헤더
+cf-cache-status: HIT | MISS | EXPIRED | DYNAMIC
+```
+
+### AWS CloudFront
+
+- **특징**: AWS 생태계 통합, 450+ POP
+- **캐시 제어**: Cache Policy로 세밀한 제어 가능
+- **무효화**: 월 1,000건 무료, 전파에 수 분 소요
+- **추가 기능**: Lambda@Edge, Origin Shield
+
+```text
+# CloudFront 캐시 상태 헤더
+x-cache: Hit from cloudfront | Miss from cloudfront
+```
+
+### Vercel Edge Network
+
+- **특징**: 프론트엔드 배포에 최적화, Next.js 네이티브 지원
+- **캐시 제어**: 프레임워크 기반 자동 설정
+- **무효화**: 배포 시 자동 무효화
+- **추가 기능**: Edge Functions, ISR(Incremental Static Regeneration)
+
+```text
+# Vercel 캐시 상태 헤더
+x-vercel-cache: HIT | MISS | STALE
+```
+
+### 선택 기준
+
+| 기준 | 추천 CDN |
+|------|---------|
+| 무료로 시작 | Cloudflare |
+| AWS 인프라 사용 중 | CloudFront |
+| Next.js/프론트엔드 특화 | Vercel |
+| 엣지 컴퓨팅 필요 | Cloudflare Workers, Vercel Edge |
+
+## 프론트엔드 배포와 CDN
+
+### 정적 자산 캐싱 전략
+
+프론트엔드 애플리케이션의 파일 유형별 권장 캐시 설정이다.
+
+**해시가 포함된 파일 (JS, CSS, 이미지)**
+
+```text
+Cache-Control: public, max-age=31536000, immutable
+```
+
+- 1년(31536000초) 캐시
+- `immutable`: 브라우저에게 revalidation도 하지 말라고 지시
+- 파일 내용이 바뀌면 해시가 바뀌므로 안전
+
+**HTML 파일**
+
+```text
+Cache-Control: public, max-age=0, s-maxage=86400, must-revalidate
+```
+
+- 브라우저: 매번 서버에 확인
+- CDN: 24시간 캐시
+- 배포 시 CDN 캐시 무효화 또는 짧은 s-maxage 사용
+
+**API 응답 (정적 데이터)**
+
+```text
+Cache-Control: public, max-age=60, s-maxage=300, stale-while-revalidate=86400
+```
+
+- 브라우저: 1분 캐시
+- CDN: 5분 캐시
+- `stale-while-revalidate`: 캐시 만료 후에도 일단 stale 응답을 주고 백그라운드에서 갱신
+
+### immutable의 의미
+
+`immutable` 지시자는 "이 리소스는 절대 변하지 않으니 확인도 하지 마라"는 의미다.
+
+```text
+# immutable 없이
+사용자가 새로고침 → 브라우저가 서버에 "바뀌었어요?" 확인 (304 응답)
+
+# immutable 있으면
+사용자가 새로고침 → 브라우저가 확인 없이 캐시 사용
+```
+
+단, `immutable`은 해시가 포함된 파일에만 사용해야 한다. 파일명이 같은데 내용이 바뀌면 문제가 된다.
+
+### stale-while-revalidate
+
+`stale-while-revalidate`는 캐시 만료 후에도 사용자에게 빠른 응답을 제공하면서 백그라운드에서 캐시를 갱신하는 전략이다.
+
+```text
+Cache-Control: max-age=60, stale-while-revalidate=3600
+```
+
+동작 방식:
+1. 0~60초: 캐시에서 즉시 응답 (fresh)
+2. 60~3660초: 캐시에서 즉시 응답 + 백그라운드에서 오리진 요청 (stale)
+3. 3660초 이후: 캐시 미스, 오리진에서 새로 가져옴
+
+```text
+시간 ────────────────────────────────────────────────>
+     [  fresh  ][      stale-while-revalidate      ][ miss ]
+     0        60                                 3660
+```
+
+사용자 입장에서는 항상 빠른 응답을 받으면서도, 데이터가 자연스럽게 갱신된다.
+
+### 배포 파이프라인 고려사항
+
+CDN을 사용할 때 배포 순서도 중요하다.
+
+```text
+잘못된 순서:
+1. HTML 배포 (새 bundle.a1b2c3.js를 참조)
+2. JS 배포 (bundle.a1b2c3.js 업로드)
+→ 1~2 사이에 사용자가 접속하면 404 발생
+
+올바른 순서:
+1. JS, CSS 등 자산 먼저 배포
+2. HTML 배포
+→ 항상 참조하는 파일이 존재함
+```
+
+대부분의 배포 플랫폼(Vercel, Netlify)은 이를 자동으로 처리한다. 직접 S3 + CloudFront를 구성한다면 배포 스크립트에서 순서를 신경 써야 한다.
+
+## 정리
+
+### CDN 캐싱 체크리스트
+
+- [ ] 해시된 자산: `Cache-Control: public, max-age=31536000, immutable`
+- [ ] HTML: 짧은 max-age 또는 `max-age=0, s-maxage=...`
+- [ ] 민감한 데이터: `Cache-Control: private`
+- [ ] Vary 헤더: 필요한 것만 최소한으로
+- [ ] 배포 순서: 자산 먼저, HTML 나중에
+
+### 핵심 정리
+
+| 개념 | 설명 |
+|------|------|
+| CDN | 지리적으로 분산된 캐시 서버 네트워크 |
+| 엣지 서버 | 사용자와 가까운 CDN 서버 |
+| s-maxage | CDN에만 적용되는 캐시 시간 |
+| 캐시 무효화 | CDN 캐시를 강제로 삭제/만료 |
+| 파일 버저닝 | 파일명에 해시를 포함해 캐시 문제 회피 |
+| immutable | 리소스가 변하지 않음을 명시 |
+| stale-while-revalidate | 만료된 캐시를 제공하며 백그라운드 갱신 |
+
+CDN 캐싱을 잘 활용하면 사용자 경험과 서버 비용 두 마리 토끼를 잡을 수 있다. 핵심은 **해시된 자산은 길게, HTML은 짧게** 캐시하고, 긴급 상황에 대비해 무효화 방법을 알아두는 것이다.
+
+## 참고 자료
+
+### 공식 문서
+
+- [MDN - Cache-Control](https://developer.mozilla.org/ko/docs/Web/HTTP/Headers/Cache-Control)
+- [MDN - HTTP 캐싱](https://developer.mozilla.org/ko/docs/Web/HTTP/Caching)
+- [web.dev - HTTP 캐시로 불필요한 네트워크 요청 방지](https://web.dev/articles/http-cache)
+- [web.dev - CDN 사용하기](https://web.dev/articles/content-delivery-networks)
+
+### CDN 서비스별 문서
+
+- [Cloudflare - 캐시 동작 방식](https://developers.cloudflare.com/cache/concepts/default-cache-behavior/)
+- [Cloudflare - CDN이란?](https://www.cloudflare.com/ko-kr/learning/cdn/what-is-a-cdn/)
+- [AWS CloudFront - 캐시 동작 개요](https://docs.aws.amazon.com/ko_kr/AmazonCloudFront/latest/DeveloperGuide/cache-behavior-overview.html)
+- [AWS CloudFront - 캐시 정책 이해](https://docs.aws.amazon.com/ko_kr/AmazonCloudFront/latest/DeveloperGuide/controlling-the-cache-key.html)
+- [Vercel - 캐싱 가이드](https://vercel.com/docs/edge-network/caching)
