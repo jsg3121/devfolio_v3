@@ -46,6 +46,7 @@ const formatDate = (date: Date): string => {
       publishedAt: entry.data.publishedAt,
       modifiedAt: entry.data.modifiedAt,
       tags: entry.data.tags,
+      ogImage: ogImageUrl,
     }),
     buildBreadcrumbJsonLd([
       { name: 'Home', url: SITE.url },

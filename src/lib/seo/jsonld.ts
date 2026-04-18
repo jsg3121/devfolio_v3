@@ -77,6 +77,7 @@ export interface ArticleJsonLdProps {
   modifiedAt?: Date;
   tags?: string[];
   wordCount?: number;
+  ogImage?: string;
 }
 
 export const buildArticleJsonLd = ({
@@ -87,6 +88,7 @@ export const buildArticleJsonLd = ({
   modifiedAt,
   tags,
   wordCount,
+  ogImage,
 }: ArticleJsonLdProps): string => {
   const data = {
     '@context': 'https://schema.org',
@@ -107,6 +109,7 @@ export const buildArticleJsonLd = ({
     },
     ...(tags && tags.length > 0 && { keywords: tags.join(', ') }),
     ...(wordCount && { wordCount }),
+    ...(ogImage && { image: `${SITE.url}${ogImage}` }),
   };
   return JSON.stringify(data);
 };
