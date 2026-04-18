@@ -38,6 +38,12 @@ jobs:
             --cache-control "public, max-age=31536000, immutable" \
             --delete
 
+      - name: Deploy OG images to S3
+        run: |
+          aws s3 sync dist/og/ s3://sungyujang-devfolio/og/ \
+            --cache-control "public, max-age=31536000, immutable" \
+            --delete
+
       - name: Deploy HTML files to S3
         run: |
           aws s3 sync dist/ s3://sungyujang-devfolio/ \

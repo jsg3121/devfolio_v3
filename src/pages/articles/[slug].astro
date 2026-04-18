@@ -23,6 +23,7 @@ const { entry } = Astro.props as Props;
 const { Content } = await render(entry);
 
 const articleUrl = buildCanonicalUrl(`/articles/${entry.data.slug}`);
+const ogImageUrl = `/og/articles/${entry.data.slug}.png`;
 
 const formatDate = (date: Date): string => {
   return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
@@ -32,6 +33,7 @@ const formatDate = (date: Date): string => {
 <ArticleLayout
   title={entry.data.seoTitle || entry.data.title}
   description={entry.data.seoDescription || entry.data.summary}
+  ogImage={ogImageUrl}
   ogType="article"
   canonicalUrl={articleUrl}
   publishedAt={entry.data.publishedAt}
