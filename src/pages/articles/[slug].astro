@@ -23,7 +23,6 @@ const { entry } = Astro.props as Props;
 const { Content } = await render(entry);
 
 const articleUrl = buildCanonicalUrl(`/articles/${entry.data.slug}`);
-const ogImageUrl = `/og/articles/${entry.data.slug}.png`;
 
 const formatDate = (date: Date): string => {
   return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
@@ -31,20 +30,18 @@ const formatDate = (date: Date): string => {
 ---
 
 <ArticleLayout
-  title={entry.data.seoTitle || entry.data.title}
-  description={entry.data.seoDescription || entry.data.summary}
-  ogImage={ogImageUrl}
+  title={`${entry.data.title} | 장선규`}
+  description={entry.data.summary}
   ogType="article"
   canonicalUrl={articleUrl}
   publishedAt={entry.data.publishedAt}
   tags={entry.data.tags}
   jsonLd={[
     buildArticleJsonLd({
-      title: entry.data.seoTitle || entry.data.title,
-      description: entry.data.seoDescription || entry.data.summary,
+      title: entry.data.title,
+      description: entry.data.summary,
       url: articleUrl,
       publishedAt: entry.data.publishedAt,
-      modifiedAt: entry.data.modifiedAt,
       tags: entry.data.tags,
     }),
     buildBreadcrumbJsonLd([
