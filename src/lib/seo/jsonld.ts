@@ -74,8 +74,9 @@ export interface ArticleJsonLdProps {
   description: string;
   url: string;
   publishedAt: Date;
+  modifiedAt?: Date;
   tags?: string[];
-  ogImage?: string;
+  wordCount?: number;
 }
 
 export const buildArticleJsonLd = ({
@@ -83,16 +84,18 @@ export const buildArticleJsonLd = ({
   description,
   url,
   publishedAt,
+  modifiedAt,
   tags,
-  ogImage,
+  wordCount,
 }: ArticleJsonLdProps): string => {
   const data = {
     '@context': 'https://schema.org',
-    '@type': 'Article',
+    '@type': 'TechArticle',
     headline: title,
     description,
     url,
     datePublished: publishedAt.toISOString(),
+    dateModified: (modifiedAt ?? publishedAt).toISOString(),
     author: {
       '@type': 'Person',
       name: SITE.author,
@@ -103,7 +106,7 @@ export const buildArticleJsonLd = ({
       name: SITE.author,
     },
     ...(tags && tags.length > 0 && { keywords: tags.join(', ') }),
-    ...(ogImage && { image: ogImage }),
+    ...(wordCount && { wordCount }),
   };
   return JSON.stringify(data);
 };
