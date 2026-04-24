@@ -1,0 +1,265 @@
+---
+title: '[Part 3] ConfigDeck 하네스 구조 분석'
+slug: 'configdeck-harness-part3-structure'
+summary: 'ConfigDeck에 구성된 12개 에이전트와 9개 스킬의 역할, 그리고 에이전트 간 협업 패턴을 상세히 분석합니다.'
+tags:
+  - 'harness'
+  - 'claude'
+  - 'ai'
+skills:
+  - 'astro'
+  - 'svelte'
+  - 'typescript'
+categories:
+  - 'dx'
+publishedAt: '2026-04-24'
+featured: true
+published: true
+order: 24
+seoTitle: 'ConfigDeck 개발기 Part 3 — 하네스 구조 분석 (에이전트 12개, 스킬 9개)'
+seoDescription: 'ConfigDeck 프로젝트에 구성된 12개 에이전트와 9개 스킬의 역할, 협업 패턴을 상세히 분석합니다.'
+---
+
+## 시리즈 목차
+
+| Part  | 제목                                      |
+| ----- | ----------------------------------------- |
+| 1     | ConfigDeck 소개와 하네스 도입 배경        |
+| 2     | Claude Code 하네스 기초 개념              |
+| **3** | **ConfigDeck 하네스 구조 분석** (현재 글) |
+| 4     | 하네스 기반 개발 과정                     |
+| 5     | 시행착오와 해결 과정                      |
+| 6     | 회고와 다음 단계                          |
+
+## 전체 폴더 구조
+
+ConfigDeck의 `.claude/` 폴더에는 **74개의 하네스 문서**가 있다.
+
+```text
+.claude/
+├── settings.json           # 권한/자동화 설정
+├── ia/                     # 기획 문서
+│   ├── index.md
+│   └── specs/
+├── decisions/              # 의사결정 기록 (ADR)
+│   ├── index.md
+│   └── records/            # 13개 ADR
+├── conventions/            # 코딩/스타일링/워크플로우 규칙
+│   └── guides/
+├── seo/                    # SEO 가이드라인
+│   └── guides/
+├── research/               # 리서치 보고서
+│   └── reports/
+├── skills/                 # 커스텀 스킬 (9개)
+│   └── {skill-name}/
+├── agents/                 # 에이전트 정의 (12개)
+│   └── {agent-name}.md
+├── qa/                     # QA 하네스
+│   ├── templates/
+│   └── guides/
+└── hooks/                  # 자동화 스크립트
+```
+
+각 폴더에는 `index.md`가 있다. 에이전트가 새로운 폴더를 탐색할 때 **항상 index.md부터 읽도록** 설계했다.
+
+## 에이전트 구성
+
+12개 에이전트는 크게 4가지 카테고리로 나뉜다.
+
+### 기획 에이전트
+
+| 에이전트            | 역할                    |
+| ------------------- | ----------------------- |
+| **product-planner** | 기능 SPEC 작성 및 관리  |
+
+기능을 개발하기 전에 기획서(SPEC)를 먼저 작성한다. product-planner는 기능의 범위, 사용자 플로우, 기술 요구사항을 정의하는 문서를 만든다.
+
+### 개발 에이전트
+
+| 에이전트           | 역할                                       |
+| ------------------ | ------------------------------------------ |
+| **config-maker**   | 설정 파일 스키마, 옵션, 생성 로직          |
+| **ui-publisher**   | Astro/Svelte 컴포넌트 구현                 |
+| **ux-designer**    | 사용자 플로우, 레이아웃, 인터랙션 설계     |
+| **seo-specialist** | 시맨틱 HTML, 메타태그, JSON-LD, 다국어 SEO |
+
+ConfigDeck의 핵심인 설정 파일 생성은 **config-maker**가 담당한다. 새로운 설정 파일 타입을 추가하거나 옵션 스키마를 설계할 때 이 에이전트를 호출한다.
+
+**ui-publisher**는 디자인을 실제 컴포넌트로 구현하고, **ux-designer**는 그 전 단계인 사용자 경험을 설계한다. 이 둘은 자주 함께 동작한다.
+
+### QA 에이전트
+
+| 에이전트            | 역할                          |
+| ------------------- | ----------------------------- |
+| **qa-agent**        | QA 오케스트레이터, 전체 검증 총괄 |
+| **unit-tester**     | Vitest 단위 테스트            |
+| **e2e-tester**      | Playwright E2E 테스트         |
+| **static-analyzer** | ESLint/TypeScript 정적 분석   |
+
+QA는 계층 구조로 설계했다. **qa-agent**가 총괄하고, 세 개의 서브 에이전트가 각각의 테스트를 담당한다.
+
+```text
+            qa-agent
+               │
+    ┌──────────┼──────────┐
+    ▼          ▼          ▼
+unit-tester  e2e-tester  static-analyzer
+ (Vitest)   (Playwright)  (ESLint/TS)
+    │          │          │
+    └──────────┼──────────┘
+               ▼
+          QA Report
+```
+
+### 비즈니스 분석 에이전트
+
+| 에이전트                | 역할                   |
+| ----------------------- | ---------------------- |
+| **market-intelligence** | 시장 조사, 경쟁사 분석 |
+| **business-analyst**    | 경쟁력 분석, 포지셔닝  |
+| **strategy-planner**    | 전략 수립              |
+
+1인 개발이지만 비즈니스 관점의 분석도 필요했다. 비슷한 서비스들을 조사하고, 어떤 차별점을 가져갈지 분석하는 역할이다.
+
+이 세 에이전트는 파이프라인으로 동작한다:
+
+```text
+market-intelligence → business-analyst → strategy-planner
+    (조사)              (분석)             (전략)
+```
+
+## 스킬 구성
+
+9개 스킬은 반복 작업을 자동화한다.
+
+### 리서치/분석
+
+| 스킬        | 용도                                 |
+| ----------- | ------------------------------------ |
+| `/research` | 기술 비교, 라이브러리 선택 시 외부 조사 |
+
+### 개발 워크플로우
+
+| 스킬                 | 용도                              |
+| -------------------- | --------------------------------- |
+| `/create-pr`         | PR 생성 (템플릿 기반, 자동 라벨)  |
+| `/component-builder` | Astro/Svelte 컴포넌트 스캐폴딩    |
+| `/lint-check`        | Prettier/ESLint 전체 검사         |
+| `/code-review`       | PR 전 코드 리뷰                   |
+
+### 품질 검증
+
+| 스킬           | 용도                                  |
+| -------------- | ------------------------------------- |
+| `/a11y-check`  | 접근성(WCAG) 감사                     |
+| `/seo-audit`   | SEO 감사 (메타태그, JSON-LD, hreflang) |
+| `/test-writer` | Vitest 단위 테스트 생성               |
+| `/e2e-test`    | Playwright E2E 테스트 생성            |
+
+## 에이전트 협업 패턴
+
+에이전트들은 단독으로도 동작하지만, 복잡한 작업에서는 **협업 패턴**으로 동작한다.
+
+### 파이프라인 (순차 실행)
+
+한 에이전트의 결과물이 다음 에이전트의 입력이 되는 패턴.
+
+```text
+product-planner → ux-designer → ui-publisher → qa-agent
+   (기획)          (설계)        (구현)        (검증)
+```
+
+새로운 기능을 처음부터 끝까지 개발할 때 사용한다.
+
+### Fan-out/Fan-in (병렬 실행)
+
+여러 에이전트가 독립적으로 작업한 후 결과를 합치는 패턴.
+
+```text
+config-maker (ESLint)  ─┐
+config-maker (Prettier) ─┼→ 결과 병합
+config-maker (TSConfig) ─┘
+```
+
+여러 설정 파일을 동시에 분석하거나 생성할 때 사용한다.
+
+### QA 오케스트레이션
+
+qa-agent가 서브 에이전트들을 조율하는 패턴.
+
+```text
+              qa-agent (총괄)
+                   │
+        ┌──────────┼──────────┐
+        ▼          ▼          ▼
+   unit-tester  e2e-tester  static-analyzer
+        │          │          │
+        └──────────┼──────────┘
+                   ▼
+             종합 리포트
+```
+
+기능 검증이 필요할 때 qa-agent를 호출하면, 알아서 필요한 테스트를 병렬로 실행하고 결과를 종합한다.
+
+## 보조 하네스 문서
+
+에이전트와 스킬 외에도 여러 보조 문서가 있다.
+
+### conventions/ — 코딩 규칙
+
+| 파일         | 내용                                    |
+| ------------ | --------------------------------------- |
+| coding.md    | TypeScript 규칙, Astro vs Svelte 사용 기준 |
+| styling.md   | Tailwind CSS 규칙, 반응형 전략          |
+| workflow.md  | 브랜치 전략, 커밋 메시지, PR 규칙       |
+| rendering.md | SSG/SSR 전략                            |
+
+### decisions/ — ADR
+
+13개의 의사결정 기록이 있다. 주요 ADR:
+
+| ADR  | 결정                        |
+| ---- | --------------------------- |
+| 0002 | 프레임워크: Astro + Svelte  |
+| 0003 | 패키지 매니저: pnpm         |
+| 0004 | 배포: Cloudflare Pages      |
+| 0008 | 옵션 스키마 재설계          |
+
+새로운 기술적 결정이 필요할 때 에이전트가 기존 ADR을 참조하여 일관성을 유지한다.
+
+### seo/ — SEO 가이드라인
+
+ConfigDeck은 SEO 유입이 핵심 전략이라 별도 폴더로 분리했다.
+
+| 파일               | 내용                   |
+| ------------------ | ---------------------- |
+| semantic-html.md   | 시맨틱 태그 사용 규칙  |
+| meta-tags.md       | 메타태그, OG 태그 규칙 |
+| structured-data.md | JSON-LD 스키마         |
+
+## Why-First 원칙
+
+모든 하네스 문서는 **"왜 그런지"를 먼저 설명**한다.
+
+```markdown
+# BAD
+- 컴포넌트 파일명은 PascalCase를 사용한다
+
+# GOOD
+- 컴포넌트 파일명은 PascalCase를 사용한다
+  → Astro/Svelte 컴포넌트와 일반 유틸 파일을 파일명만으로 즉시 구분하기 위함
+```
+
+규칙만 나열하면 에이전트가 기계적으로 따르지만, 이유를 알면 **엣지 케이스에서도 올바르게 판단**할 수 있다.
+
+## 정리
+
+| 카테고리   | 에이전트/스킬 수      | 역할           |
+| ---------- | --------------------- | -------------- |
+| 기획       | 1 에이전트            | 기능 SPEC 작성 |
+| 개발       | 4 에이전트, 2 스킬    | 설계, 구현     |
+| QA         | 4 에이전트, 4 스킬    | 테스트, 검증   |
+| 비즈니스   | 3 에이전트, 1 스킬    | 조사, 분석, 전략 |
+| 워크플로우 | 2 스킬                | PR, 코드 리뷰  |
+
+하네스는 단순히 문서를 모아둔 것이 아니다. **에이전트 간 협업 구조, 역할 분담, 의사결정 기록**까지 포함한 하나의 시스템이다.

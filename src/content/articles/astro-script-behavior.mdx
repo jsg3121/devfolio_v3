@@ -1,23 +1,23 @@
 ---
-title: "Astro에서 script와 script is:inline의 차이"
-slug: "astro-script-behavior"
-summary: "Astro의 두 가지 스크립트 선언 방식이 브라우저 렌더링 과정에서 어떻게 다르게 동작하는지, 그리고 View Transitions 환경에서 각각을 언제 사용해야 하는지 정리합니다."
+title: 'Astro에서 script와 script is:inline의 차이'
+slug: 'astro-script-behavior'
+summary: 'Astro의 두 가지 스크립트 선언 방식이 브라우저 렌더링 과정에서 어떻게 다르게 동작하는지, 그리고 View Transitions 환경에서 각각을 언제 사용해야 하는지 정리합니다.'
 tags:
-  - "astro"
-  - "javascript"
-  - "view-transitions"
-  - "rendering"
+  - 'astro'
+  - 'javascript'
+  - 'view-transitions'
+  - 'rendering'
 skills:
-  - "astro"
-  - "typescript"
+  - 'astro'
+  - 'typescript'
 categories:
-  - "astro"
-publishedAt: "2026-03-20"
+  - 'astro'
+publishedAt: '2026-03-20'
 featured: true
 published: true
 order: 1
-seoTitle: "Astro script vs script is:inline — 동작 방식 차이와 사용 기준"
-seoDescription: "Astro의 두 가지 스크립트 방식이 브라우저 렌더링에서 어떻게 동작하는지, View Transitions에서의 주의점과 함께 정리합니다."
+seoTitle: 'Astro script vs script is:inline — 동작 방식 차이와 사용 기준'
+seoDescription: 'Astro의 두 가지 스크립트 방식이 브라우저 렌더링에서 어떻게 동작하는지, View Transitions에서의 주의점과 함께 정리합니다.'
 ---
 
 ## 들어가며
@@ -160,11 +160,11 @@ document.addEventListener('astro:after-swap', applyTheme);
 
 ## 정리: 언제 어떤 방식을 사용하는가
 
-| 상황 | 방식 | 이유 |
-|------|------|------|
-| 렌더링 전에 실행되어야 하는 코드 (테마, 폰트 등) | `is:inline` | `<head>`에서 즉시 실행 |
-| 외부 라이브러리를 import해야 할 때 | 기본 `<script>` | 번들링 필요 |
-| DOM 조작, 이벤트 바인딩 | 기본 `<script>` | DOM 파싱 완료 후 안전하게 실행 |
-| 번들 크기에 포함시키고 싶지 않은 간단한 코드 | `is:inline` | 번들링 우회 |
+| 상황                                             | 방식            | 이유                           |
+| ------------------------------------------------ | --------------- | ------------------------------ |
+| 렌더링 전에 실행되어야 하는 코드 (테마, 폰트 등) | `is:inline`     | `<head>`에서 즉시 실행         |
+| 외부 라이브러리를 import해야 할 때               | 기본 `<script>` | 번들링 필요                    |
+| DOM 조작, 이벤트 바인딩                          | 기본 `<script>` | DOM 파싱 완료 후 안전하게 실행 |
+| 번들 크기에 포함시키고 싶지 않은 간단한 코드     | `is:inline`     | 번들링 우회                    |
 
 핵심 원칙은 단순하다. **"렌더링 전이냐, 후냐."** 이 기준으로 판단하면 대부분의 경우 올바른 선택을 할 수 있다.
