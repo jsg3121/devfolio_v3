@@ -1,0 +1,112 @@
+---
+title: 'ConfigDeck'
+slug: 'configdeck'
+status: 'active'
+summary: '개발자용 설정 파일 생성 서비스 — Claude Code 하네스 시스템 기반 1인 개발 프로젝트'
+description: 'Astro 6 + Svelte 5 기반의 설정 파일 생성 웹 서비스. 12개 에이전트와 9개 스킬로 구성한 Claude Code 하네스 시스템을 중심으로 빈 폴더에서 약 2주 만에 배포까지 완료한 1인 개발 프로젝트.'
+tags: ['web-app', 'ai', 'dx']
+skills: ['astro', 'svelte', 'typescript', 'tailwindcss']
+featured: true
+startedAt: '2026-04-02'
+repositoryUrl: ['https://github.com/jsg3121/configDeck']
+projectUrl: 'https://configdeck.dev/ko'
+images:
+  - src: '../../assets/images/side-projects/configdeck/configdeck_1.png'
+    alt: 'ConfigDeck 홈 화면 — 서비스 진입 시 첫 화면과 주요 기능 안내'
+  - src: '../../assets/images/side-projects/configdeck/configdeck_2.png'
+    alt: 'ConfigDeck 스택 프리셋 — 프레임워크 단위로 설정 파일을 한 번에 생성하는 기능'
+  - src: '../../assets/images/side-projects/configdeck/configdeck_3.png'
+    alt: 'ConfigDeck AI 뉴스 아티클 — 매일 자동화로 업데이트되는 개발 관련 AI 요약 뉴스'
+  - src: '../../assets/images/side-projects/configdeck/configdeck_4.png'
+    alt: 'ConfigDeck ESLint 마이그레이션 — 레거시 .eslintrc 포맷을 Flat Config(eslint.config.mjs)로 변환'
+order: 8
+---
+
+## 프로젝트 소개
+
+- **제작 인원**: 1명 (기획, 개발, 디자인, 운영)
+- **제작 기간**: 2026.04 ~ **운영 중**
+- **서비스 주소**: [configdeck.dev](https://configdeck.dev/ko)
+
+ConfigDeck은 ESLint, Prettier, TypeScript 같은 프로젝트 초기 설정 파일을 UI에서 옵션을 골라 손쉽게 생성·다운로드할 수 있는 웹 서비스입니다. 매번 같은 설정만 복붙하다 보면 새로 추가된 옵션이나 버전별 변경 사항을 놓치기 쉽다는 문제의식에서 출발했습니다. 사용자가 직접 옵션을 확인하며 필요한 것만 골라 담을 수 있도록, "설정 파일 장보기"와 같은 경험을 목표로 설계했습니다.
+
+이 프로젝트의 또 다른 핵심은 **Claude Code 하네스 시스템 기반 1인 개발 워크플로우**입니다. 코드 리뷰·QA·의사결정 논의 부재라는 1인 개발의 한계를 AI 팀으로 보완하기 위해, 빈 폴더에서 코드보다 하네스를 먼저 구축했습니다. 12개 에이전트, 9개 스킬, 13개 ADR로 구성된 하네스를 중심으로 약 2주 만에 배포까지 마쳤습니다.
+
+## 핵심 기능
+
+| 기능             | 설명                                                                     |
+| ---------------- | ------------------------------------------------------------------------ |
+| **파일 생성기**  | 옵션을 선택하면 실시간 미리보기, 복사 및 다운로드 지원                   |
+| **스택 프리셋**  | React + Vite, Next.js, Astro 등 프레임워크별 설정 파일 일괄 생성         |
+| **마이그레이션** | 레거시 포맷 변환 (예: `.eslintrc` → `eslint.config.mjs` Flat Config)     |
+| **ZIP 다운로드** | 여러 설정 파일을 한 번에 번들 다운로드                                   |
+| **AI 뉴스**      | 매일 자동화로 갱신되는 개발 관련 AI 요약 뉴스 아티클 제공                |
+
+지원하는 설정 파일은 `.gitignore`, `.editorconfig`, `.env.example`, `tsconfig.json`, `eslint.config.mjs`, `prettier.config.mjs`, `vite.config.ts`, `vitest.config.ts`, `next.config.js` 등이며, 사용자 피드백과 생태계 변화에 맞춰 지속적으로 확장하고 있습니다.
+
+## 주요 구현
+
+### Astro 6 + Svelte 5 하이브리드 구조
+
+콘텐츠 페이지는 Astro로, 옵션 선택과 미리보기 같은 인터랙션 영역만 Svelte 5(Runes) 컴포넌트로 분리했습니다. 정적 콘텐츠는 JS 0KB로 전달하고, 인터랙션이 필요한 영역만 컴파일러 기반의 최소 런타임으로 동작하도록 설계해 페이지 무게를 최소화했습니다.
+
+### 옵션 스키마 설계
+
+설정 파일별 옵션을 선언적인 스키마로 관리하여, 새로운 설정 파일이나 옵션을 추가할 때 UI·생성 로직·미리보기가 동일한 단일 소스에서 파생되도록 했습니다. 옵션 스키마는 운영 중에도 한 차례 재설계하여(ADR-0008), 마이그레이션 기능과 같은 확장 요구를 자연스럽게 흡수할 수 있는 구조로 정리했습니다.
+
+### Cloudflare Pages 정적 배포
+
+서버 로직 없이 SSG로 정적 출력을 만든 뒤 Cloudflare Pages 글로벌 CDN으로 배포하여, 운영 비용을 최소화하면서도 빠른 응답 속도를 확보했습니다. 도메인 구매부터 첫 배포까지 약 2주 안에 마무리했습니다.
+
+### QA 파이프라인
+
+Vitest 단위 테스트, Playwright E2E 테스트, ESLint/TypeScript 정적 분석을 하나의 QA 에이전트가 병렬로 오케스트레이션합니다. 기능 구현이 끝나면 QA 에이전트를 호출해 사용자 시나리오 단위로 검증하고, "옵션 미선택 시 다운로드 버튼 비활성화" 같은 엣지 케이스를 사전에 잡아내는 흐름을 운영 중입니다.
+
+## Claude Code 하네스 기반 1인 개발
+
+이 프로젝트의 가장 큰 차별점은 **코드보다 하네스를 먼저 구성**했다는 점입니다. 일반적으로 기획 → 기술 스택 → 개발 환경 세팅 순으로 진행하지만, ConfigDeck은 빈 폴더에서 시작해 다음 순서로 작업했습니다.
+
+```text
+빈 폴더 → 에이전트/스킬 정의 → 기술 스택 논의(ADR) → 컨벤션 정의 → CLAUDE.md 작성 → 개발
+```
+
+### 하네스 구성
+
+| 구분          | 수    | 역할                                                              |
+| ------------- | ----- | ----------------------------------------------------------------- |
+| **에이전트**  | 12개  | 기획, 개발, QA, 비즈니스 분석 등 도메인별 전문가                  |
+| **스킬**      | 9개   | PR 생성, 린트 검사, 컴포넌트 스캐폴딩 등 반복 작업 자동화         |
+| **ADR**      | 13개  | 프레임워크·패키지 매니저·배포 등 주요 의사결정 기록              |
+| **하네스 문서** | 74개  | conventions, seo, qa, decisions 등 카테고리별로 분리             |
+
+### 협업 패턴
+
+에이전트는 단독 호출뿐 아니라 **파이프라인(순차)**, **Fan-out/Fan-in(병렬)**, **QA 오케스트레이션**의 세 가지 패턴으로 동작합니다. 예컨대 새 기능은 `product-planner → ux-designer → ui-publisher → qa-agent` 순서로 흐르고, QA는 `qa-agent`가 `unit-tester / e2e-tester / static-analyzer`를 병렬로 실행한 뒤 결과를 합치는 구조입니다.
+
+### Why-First 원칙
+
+모든 하네스 문서는 "왜 그런지"를 먼저 설명하는 방식으로 작성했습니다. 규칙만 나열하면 에이전트가 기계적으로 따르지만, 이유를 알면 엣지 케이스에서도 일관된 판단을 내릴 수 있다는 것을 시행착오를 통해 확인했습니다.
+
+## 개발 시리즈
+
+ConfigDeck 하네스 구축 과정은 6편의 아티클 시리즈로 정리했습니다.
+
+| Part | 제목                                                                                          |
+| ---- | --------------------------------------------------------------------------------------------- |
+| 1    | [ConfigDeck 소개와 하네스 도입 배경](/articles/configdeck-harness-part1-introduction)         |
+| 2    | [Claude Code 하네스 기초 개념](/articles/configdeck-harness-part2-basics)                     |
+| 3    | [ConfigDeck 하네스 구조 분석](/articles/configdeck-harness-part3-structure)                   |
+| 4    | [하네스 기반 개발 과정](/articles/configdeck-harness-part4-development)                       |
+| 5    | [시행착오와 해결 과정](/articles/configdeck-harness-part5-lessons)                            |
+| 6    | [회고와 다음 단계](/articles/configdeck-harness-part6-retrospective)                          |
+
+## 배운 점
+
+- **하네스가 없으면 AI는 매번 처음 보는 프로젝트처럼 동작**한다는 점을 직접 체감했습니다. CLAUDE.md·에이전트·스킬·컨벤션·ADR이 갖춰져 있어야 일관된 협업이 가능합니다.
+- 컨벤션은 코드를 작성하기 **전에 세부적으로 정의**해야 합니다. 대략적인 규칙만 두고 시작하면 코드 스타일이 뒤죽박죽이 되고, 사후 통일 비용이 훨씬 큽니다.
+- "나중에 필요할 것 같은" 에이전트와 스킬을 미리 만들어두는 것은 오히려 비용입니다. **실제로 필요한 것만 정의하고 사용하면서 정리**하는 편이 효율적입니다.
+- 토큰 낭비를 줄이려면 핵심 문서를 가볍게 두고 상세 규칙은 `references/`로 분리하는 **Progressive Disclosure** 구조가 효과적이었습니다.
+
+## 앞으로
+
+현재도 새로운 설정 파일·옵션 추가, 마이그레이션 기능 확장, AI 뉴스 자동화 개선 등 기능 개발과 유지보수를 지속적으로 진행하고 있습니다. 동시에 하네스 자체도 사용 빈도와 시행착오를 기준으로 계속 다듬어가고 있으며, 이 과정에서 얻은 구조와 의사결정은 다음 1인 프로젝트에도 재사용할 계획입니다.
