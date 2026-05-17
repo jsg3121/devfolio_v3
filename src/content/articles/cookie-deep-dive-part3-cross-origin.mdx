@@ -17,7 +17,7 @@ categories:
 publishedAt: '2026-05-17'
 featured: true
 published: true
-order: 30
+order: 28
 seoTitle: '쿠키 톺아보기 (3) — Cross-origin 요청과 credentials, CORS의 삼각관계'
 seoDescription: 'Cross-origin fetch에서 쿠키가 자동 첨부되지 않는 이유와 credentials: include의 동작 조건, Preflight 흐름, SameSite와 CORS의 분리된 검증 단계를 정리합니다.'
 ---
@@ -75,7 +75,7 @@ fetch('https://api.other.com/user');
 // evil.com이 백그라운드에서 다음 코드를 실행
 fetch('https://bank.com/transfer', {
   method: 'POST',
-  body: 'to=attacker&amount=1000000'
+  body: 'to=attacker&amount=1000000',
 });
 ```
 
@@ -97,11 +97,11 @@ fetch(url, {
 
 각 값의 동작은 다음과 같다.
 
-| 값                          | Same-origin 요청 | Cross-origin 요청              |
-| --------------------------- | ---------------- | ------------------------------ |
-| `omit`                      | 안 보냄          | 안 보냄                        |
-| `same-origin` *(기본)*      | 보냄             | 안 보냄                        |
-| `include`                   | 보냄             | 보냄 (단, 조건 충족 시)        |
+| 값                     | Same-origin 요청 | Cross-origin 요청       |
+| ---------------------- | ---------------- | ----------------------- |
+| `omit`                 | 안 보냄          | 안 보냄                 |
+| `same-origin` _(기본)_ | 보냄             | 안 보냄                 |
+| `include`              | 보냄             | 보냄 (단, 조건 충족 시) |
 
 참고로 `XMLHttpRequest`에서는 `xhr.withCredentials = true`가 같은 역할을 한다. 기본값이 `false`인 점도 동일하다. fetch는 이 동작을 세 가지 값으로 더 세분화한 것이다.
 
@@ -140,7 +140,7 @@ app.use((req, res, next) => {
   if (allowed.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Vary', 'Origin');  // 캐시 정확성을 위해 필수
+    res.setHeader('Vary', 'Origin'); // 캐시 정확성을 위해 필수
   }
   next();
 });
@@ -161,11 +161,11 @@ Set-Cookie: sessionId=xxx; HttpOnly; Secure; SameSite=None   (O)
 
 2020년 Chrome 80부터 `SameSite` 기본값이 `Lax`로 바뀌었다. 명시하지 않으면 cross-site 요청에 쿠키가 첨부되지 않는다. cross-site에 쿠키를 보내려면 **`SameSite=None`** 이 필요하고, 이 조합은 **`Secure`** 도 함께 요구한다.
 
-| SameSite 값              | Cross-site 요청 시                                |
-| ------------------------ | ------------------------------------------------- |
-| `Strict`                 | 안 보냄                                           |
-| `Lax` *(기본값)*         | 안 보냄 (top-level 네비게이션 GET은 예외)         |
-| `None`                   | 보냄 (`Secure` 필수)                              |
+| SameSite 값      | Cross-site 요청 시                        |
+| ---------------- | ----------------------------------------- |
+| `Strict`         | 안 보냄                                   |
+| `Lax` _(기본값)_ | 안 보냄 (top-level 네비게이션 GET은 예외) |
+| `None`           | 보냄 (`Secure` 필수)                      |
 
 ## Preflight 흐름
 
@@ -269,7 +269,7 @@ Set-Cookie: newSession=xyz; Secure; SameSite=None
 ```javascript
 // app.example.com에서
 fetch('https://api.example.com/me', {
-  credentials: 'include'
+  credentials: 'include',
 });
 ```
 
@@ -290,7 +290,7 @@ Set-Cookie: sessionId=xxx; Domain=.example.com; Secure; SameSite=Lax; HttpOnly
 ```javascript
 // example.com에서
 fetch('https://other.com/api', {
-  credentials: 'include'
+  credentials: 'include',
 });
 ```
 
@@ -310,7 +310,7 @@ Set-Cookie: sessionId=xxx; Secure; SameSite=None
 
 ```javascript
 fetch('https://api.other.com/user', {
-  headers: { 'Authorization': `Bearer ${token}` }
+  headers: { Authorization: `Bearer ${token}` },
   // credentials 옵션 불필요
 });
 ```
@@ -349,13 +349,13 @@ fetch('https://api.other.com/user', {
 
 **"사용자가 어떤 사이트에 로그인했다는 사실을, 다른 사이트가 임의로 이용할 수 없어야 한다."**
 
-| 제약                                              | 막는 공격                                              |
-| ------------------------------------------------- | ------------------------------------------------------ |
-| Cross-origin 쿠키 기본 차단                       | CSRF                                                   |
-| `Allow-Origin: *` 금지 (with credentials)         | 임의의 사이트가 자격증명 요청을 도용                   |
-| `SameSite=None`에 `Secure` 강제                   | 평문 노출, 무분별한 cross-site 추적                    |
-| Preflight                                         | 쿠키 첨부 전에 서버의 허용 의사 확인                   |
-| `Partitioned` (CHIPS)                             | 사이트 간 쿠키 추적                                    |
+| 제약                                      | 막는 공격                            |
+| ----------------------------------------- | ------------------------------------ |
+| Cross-origin 쿠키 기본 차단               | CSRF                                 |
+| `Allow-Origin: *` 금지 (with credentials) | 임의의 사이트가 자격증명 요청을 도용 |
+| `SameSite=None`에 `Secure` 강제           | 평문 노출, 무분별한 cross-site 추적  |
+| Preflight                                 | 쿠키 첨부 전에 서버의 허용 의사 확인 |
+| `Partitioned` (CHIPS)                     | 사이트 간 쿠키 추적                  |
 
 쿠키가 자동 첨부라는 편의를 제공하는 만큼, **남용되지 않도록 여러 겹의 안전장치**를 둔 것이다.
 
