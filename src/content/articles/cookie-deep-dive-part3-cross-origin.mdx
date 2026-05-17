@@ -1,0 +1,370 @@
+---
+title: '쿠키 톺아보기 (3) — Cross-origin 요청과 credentials, CORS의 삼각관계'
+slug: 'cookie-deep-dive-part3-cross-origin'
+summary: 'Cross-origin fetch에서 쿠키가 자동으로 첨부되지 않는 이유, credentials 옵션의 세 가지 값, 그리고 SameSite·CORS·credentials가 함께 동작하는 조건을 단계별로 정리합니다.'
+tags:
+  - 'cookie'
+  - 'cors'
+  - 'fetch'
+  - 'credentials'
+  - 'samesite'
+  - 'security'
+skills:
+  - 'web'
+  - 'security'
+categories:
+  - 'web'
+publishedAt: '2026-05-17'
+featured: true
+published: true
+order: 30
+seoTitle: '쿠키 톺아보기 (3) — Cross-origin 요청과 credentials, CORS의 삼각관계'
+seoDescription: 'Cross-origin fetch에서 쿠키가 자동 첨부되지 않는 이유와 credentials: include의 동작 조건, Preflight 흐름, SameSite와 CORS의 분리된 검증 단계를 정리합니다.'
+---
+
+## 들어가며
+
+[1편](/articles/cookie-deep-dive-part1-basics)과 [2편](/articles/cookie-deep-dive-part2-lifecycle)에서 쿠키의 기본 동작과 생애주기를 정리했다. 같은 도메인 안에서라면 쿠키는 매 요청에 자동으로 첨부되어 별다른 코드 없이도 인증이 유지된다.
+
+문제는 도메인이 달라질 때다. `fetch()`로 다른 출처에 요청을 보내면 쿠키가 자동으로 첨부되지 않는다. `credentials: 'include'`를 켜도 이번엔 CORS 에러가 뜬다. 서버에 `Access-Control-Allow-Origin`을 추가했는데도 여전히 막힌다. 실무에서 가장 자주 마주치는 막힘 지점이다.
+
+이 글에서는 cross-origin 요청에서 쿠키가 어떻게 다뤄지는지를 단계별로 정리한다. **Origin과 Site의 차이, 기본 차단의 이유, credentials 옵션의 3가지 값, Preflight 흐름, 그리고 SameSite와 CORS가 어떻게 분리된 검증 단계로 작동하는지**까지 다룬다.
+
+## Origin과 Site — 먼저 구분해두기
+
+쿠키와 CORS를 다루기 전에 **Origin**과 **Site**라는 두 개념을 정확히 구분해야 한다. 둘은 비슷해 보이지만 적용 범위가 다르고, 각각 다른 정책(`SameSite`와 CORS)이 참조한다.
+
+**Origin = 프로토콜 + 호스트 + 포트** 의 조합이다. 하나라도 다르면 cross-origin이다.
+
+```text
+https://example.com:443/page    ← 기준
+─────────────────────────────────────────────
+https://example.com/api         ✅ Same-origin
+https://api.example.com         ❌ Cross-origin (호스트 다름)
+http://example.com              ❌ Cross-origin (프로토콜 다름)
+https://example.com:8080        ❌ Cross-origin (포트 다름)
+```
+
+**Site**는 더 느슨한 개념으로, **eTLD+1**(Effective Top-Level Domain + 1)을 기준으로 한다. `example.com`과 `api.example.com`은 다른 origin이지만, 같은 site다.
+
+```text
+example.com  vs  api.example.com   → Same-site (eTLD+1이 example.com으로 동일)
+example.com  vs  other.com         → Cross-site
+```
+
+이 구분이 중요한 이유는 명확하다. **CORS는 origin 기준으로 동작하고, SameSite는 site 기준으로 동작한다.** 서브도메인 간 요청은 cross-origin이지만 same-site이므로, `SameSite=Lax` 쿠키도 함께 보내진다. 이 차이가 헷갈리면 디버깅 시 한참 헤매게 된다.
+
+## 기본 동작 — Cross-origin이면 쿠키가 안 붙는다
+
+기본적으로 `fetch()`는 cross-origin 요청에 쿠키를 첨부하지 않는다.
+
+```javascript
+// example.com에서 실행
+fetch('https://api.other.com/user');
+// Cookie 헤더가 자동으로 첨부되지 않음
+```
+
+같은 fetch라도 same-origin이면 자동 첨부되는데, cross-origin이면 막힌다. 이 차이는 단순한 제약이 아니라 **CSRF(Cross-Site Request Forgery)** 를 막기 위한 의도적인 설계다.
+
+### 만약 막지 않는다면
+
+쿠키가 무조건 자동 첨부된다고 가정해보자.
+
+```javascript
+// 사용자가 악성 사이트 evil.com에 방문
+// evil.com이 백그라운드에서 다음 코드를 실행
+fetch('https://bank.com/transfer', {
+  method: 'POST',
+  body: 'to=attacker&amount=1000000'
+});
+```
+
+사용자가 bank.com에 로그인된 상태라면, 브라우저는 bank.com의 쿠키를 함께 보낼 것이다. 서버 입장에서는 정상적인 인증된 요청과 구분이 불가능하다.
+
+이런 공격을 막기 위해 브라우저는 **"다른 출처로 가는 요청에는 기본적으로 자격증명을 첨부하지 않는다"** 는 정책을 도입했다. `credentials` 옵션은 이 기본 정책을 명시적으로 풀거나 더 강하게 잠그기 위한 스위치다.
+
+## credentials 옵션의 3가지 값
+
+`fetch()`의 `credentials` 옵션은 **인증 정보(쿠키, HTTP 인증 헤더, 클라이언트 TLS 인증서)** 를 어떻게 다룰지 결정한다.
+
+```javascript
+fetch(url, {
+  credentials: 'omit'        // ① 절대 안 보냄
+  credentials: 'same-origin' // ② 같은 출처에만 보냄 (기본값)
+  credentials: 'include'     // ③ cross-origin에도 보냄
+});
+```
+
+각 값의 동작은 다음과 같다.
+
+| 값                          | Same-origin 요청 | Cross-origin 요청              |
+| --------------------------- | ---------------- | ------------------------------ |
+| `omit`                      | 안 보냄          | 안 보냄                        |
+| `same-origin` *(기본)*      | 보냄             | 안 보냄                        |
+| `include`                   | 보냄             | 보냄 (단, 조건 충족 시)        |
+
+참고로 `XMLHttpRequest`에서는 `xhr.withCredentials = true`가 같은 역할을 한다. 기본값이 `false`인 점도 동일하다. fetch는 이 동작을 세 가지 값으로 더 세분화한 것이다.
+
+## include를 켜도 안 될 때가 있다
+
+여기가 가장 헷갈리는 부분이다. **클라이언트가 `credentials: 'include'`를 명시해도, 서버 응답이 조건을 만족하지 않으면 브라우저가 응답 자체를 차단**한다. 정확히는 응답을 받기는 받지만, JS에 노출하지 않는다.
+
+필요한 조건은 네 가지다.
+
+```text
+[Client]                          [Server]
+fetch('https://api.other.com', {
+  credentials: 'include'  ─────▶  반드시 응답에 포함되어야 함:
+})
+                                  ① Access-Control-Allow-Origin:
+                                       https://example.com  (와일드카드 금지)
+                                  ② Access-Control-Allow-Credentials: true
+                                  ③ (필요 시) Allow-Methods, Allow-Headers
+                                  ④ 쿠키 자체가 SameSite=None; Secure
+```
+
+### 실수 ① Access-Control-Allow-Origin에 와일드카드 사용
+
+```text
+Access-Control-Allow-Origin: *                       (X)
+Access-Control-Allow-Origin: https://example.com     (O)
+```
+
+`credentials: include`인 경우 와일드카드는 명세상 금지되어 있다. 정확한 출처를 명시해야 한다. 여러 출처를 허용해야 한다면 서버에서 요청의 `Origin` 헤더를 보고 동적으로 응답해야 한다.
+
+```javascript
+// Express 예시
+app.use((req, res, next) => {
+  const allowed = ['https://example.com', 'https://app.example.com'];
+  const origin = req.headers.origin;
+  if (allowed.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin');  // 캐시 정확성을 위해 필수
+  }
+  next();
+});
+```
+
+`Vary: Origin`을 함께 보내지 않으면 CDN/프록시가 한 출처에 대한 응답을 다른 출처에 잘못 캐시해줄 수 있다.
+
+### 실수 ② Access-Control-Allow-Credentials 누락
+
+이 헤더가 `true`로 응답되지 않으면, 브라우저는 응답을 받기는 받지만 JS에 전달하지 않는다. 네트워크 탭에는 200 OK로 보이지만 `fetch().then()`에는 도달하지 못하는, 디버깅하기 까다로운 상황이 발생한다.
+
+### 실수 ③ 쿠키에 SameSite=None; Secure가 없음
+
+```text
+Set-Cookie: sessionId=xxx; HttpOnly                          (X)
+Set-Cookie: sessionId=xxx; HttpOnly; Secure; SameSite=None   (O)
+```
+
+2020년 Chrome 80부터 `SameSite` 기본값이 `Lax`로 바뀌었다. 명시하지 않으면 cross-site 요청에 쿠키가 첨부되지 않는다. cross-site에 쿠키를 보내려면 **`SameSite=None`** 이 필요하고, 이 조합은 **`Secure`** 도 함께 요구한다.
+
+| SameSite 값              | Cross-site 요청 시                                |
+| ------------------------ | ------------------------------------------------- |
+| `Strict`                 | 안 보냄                                           |
+| `Lax` *(기본값)*         | 안 보냄 (top-level 네비게이션 GET은 예외)         |
+| `None`                   | 보냄 (`Secure` 필수)                              |
+
+## Preflight 흐름
+
+`credentials: 'include'`에 더해 메서드가 `POST`이고 `Content-Type: application/json`이라면, 브라우저는 실제 요청 전에 **Preflight(OPTIONS) 요청**을 먼저 보낸다.
+
+Preflight가 필요한 조건은 **단순 요청(simple request)** 이 아닐 때다. 단순 요청은 `GET`/`HEAD`/`POST`이면서, 표준 헤더만 쓰고, `Content-Type`이 `application/x-www-form-urlencoded`/`multipart/form-data`/`text/plain` 중 하나인 경우다. 이 조건을 벗어나면 Preflight가 발생한다.
+
+```text
+[Step 1] Preflight 요청 (브라우저가 자동)
+─────────────────────────────────────────────────
+OPTIONS /api/user HTTP/1.1
+Host: api.other.com
+Origin: https://example.com
+Access-Control-Request-Method: POST
+Access-Control-Request-Headers: content-type
+(쿠키는 여기서 보내지 않음)
+
+[Step 2] Preflight 응답
+─────────────────────────────────────────────────
+HTTP/1.1 204 No Content
+Access-Control-Allow-Origin: https://example.com
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Methods: POST, GET
+Access-Control-Allow-Headers: content-type
+Access-Control-Max-Age: 86400          (캐시로 재요청 방지)
+
+[Step 3] 브라우저 검증
+─────────────────────────────────────────────────
+- Allow-Origin이 정확히 현재 출처인가?
+- Allow-Credentials: true인가?
+- 메서드/헤더가 허용되었는가?
+→ 통과해야 실제 요청을 보냄
+
+[Step 4] 실제 요청 (이제 쿠키 첨부)
+─────────────────────────────────────────────────
+POST /api/user HTTP/1.1
+Host: api.other.com
+Origin: https://example.com
+Content-Type: application/json
+Cookie: sessionId=abc123
+
+[Step 5] 실제 응답
+─────────────────────────────────────────────────
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: https://example.com
+Access-Control-Allow-Credentials: true
+Set-Cookie: newSession=xyz; Secure; SameSite=None
+
+[Step 6] 브라우저가 응답 검증 후 JS에 전달
+─────────────────────────────────────────────────
+- 응답에도 Allow-Origin, Allow-Credentials가 제대로 있는가?
+→ 통과해야 fetch().then()에 데이터 전달
+```
+
+여기서 자주 놓치는 포인트가 있다. **Preflight 응답과 실제 응답 양쪽 모두에 `Allow-Origin`과 `Allow-Credentials` 헤더가 필요하다.** Preflight만 통과시켰는데 실제 응답이 막히는 경우가 흔하다.
+
+`Access-Control-Max-Age`를 적절히 설정하면 일정 시간 동안 Preflight를 캐시하므로, 같은 endpoint에 반복 요청 시 매번 OPTIONS가 추가로 나가는 비용을 줄일 수 있다.
+
+## SameSite와 CORS는 분리된 검증
+
+이 부분이 가장 헷갈리는 지점이다. **`SameSite`와 CORS는 서로 다른 레이어에서 동작하며, 둘 다 통과해야 쿠키가 전송된다.**
+
+```text
+[fetch 요청 발생]
+        │
+        ▼
+┌──────────────────────────┐
+│  1. SameSite 검증        │  ← 쿠키 자체의 속성
+│     쿠키를 보낼 수 있는가?│
+└──────────┬───────────────┘
+           │ 통과
+           ▼
+┌──────────────────────────┐
+│  2. credentials 옵션     │  ← fetch 호출자의 의사
+│     보내겠다고 했는가?    │
+└──────────┬───────────────┘
+           │ 통과
+           ▼
+┌──────────────────────────┐
+│  3. CORS 응답 검증       │  ← 서버의 허락
+│     서버가 허용했는가?   │
+└──────────┬───────────────┘
+           │ 통과
+           ▼
+        쿠키 전송 + 응답 JS에 전달
+```
+
+세 단계가 모두 통과해야 한다. 하나라도 어긋나면 쿠키가 안 가거나 응답이 차단된다. 디버깅할 때는 어느 단계에서 막혔는지 분리해서 확인해야 한다.
+
+- 네트워크 탭의 요청에 `Cookie` 헤더 자체가 없다면 → ① 또는 ② 문제
+- 요청에는 쿠키가 있지만 응답이 JS에 전달되지 않는다면 → ③ 문제
+
+## 실전 시나리오
+
+자주 마주치는 세 가지 구성에서 어떤 설정이 필요한지 정리한다.
+
+### 시나리오 A — 같은 사이트, 다른 출처
+
+`app.example.com`에서 `api.example.com`을 호출하는 구성이다. cross-origin이지만 same-site다.
+
+```javascript
+// app.example.com에서
+fetch('https://api.example.com/me', {
+  credentials: 'include'
+});
+```
+
+```text
+[서버 응답]
+Access-Control-Allow-Origin: https://app.example.com
+Access-Control-Allow-Credentials: true
+Vary: Origin
+Set-Cookie: sessionId=xxx; Domain=.example.com; Secure; SameSite=Lax; HttpOnly
+```
+
+`Domain=.example.com`으로 설정하면 양쪽 서브도메인에서 모두 보인다. **`SameSite=Lax`도 가능**한 이유는 두 도메인이 같은 사이트이기 때문이다. 즉, `SameSite=None`까지 가지 않아도 된다.
+
+### 시나리오 B — 완전히 다른 사이트
+
+`example.com`에서 `other.com`을 호출하는 구성이다. 결제 위젯, 외부 SDK 임베드 등이 여기에 해당한다.
+
+```javascript
+// example.com에서
+fetch('https://other.com/api', {
+  credentials: 'include'
+});
+```
+
+```text
+[서버 응답]
+Access-Control-Allow-Origin: https://example.com
+Access-Control-Allow-Credentials: true
+Vary: Origin
+Set-Cookie: sessionId=xxx; Secure; SameSite=None
+```
+
+다른 사이트이므로 `SameSite=None`이 필수이고, 그에 따라 `Secure`도 함께 필요하다. 다만 Chrome의 3rd-party 쿠키 폐지 정책이 진행 중이므로, 이 패턴은 점차 어려워질 가능성이 있다. `Partitioned` 옵션(CHIPS)이 그 대안이다.
+
+### 시나리오 C — 토큰 기반 (쿠키 미사용)
+
+쿠키 대신 `Authorization` 헤더로 토큰을 보내는 방식이다.
+
+```javascript
+fetch('https://api.other.com/user', {
+  headers: { 'Authorization': `Bearer ${token}` }
+  // credentials 옵션 불필요
+});
+```
+
+쿠키를 사용하지 않으므로 `SameSite`나 `Allow-Credentials`를 신경 쓰지 않아도 된다. CORS만 통과하면 된다. 외부 API 서버, 모바일 앱과 공유하는 백엔드가 토큰 방식을 선택하는 이유다.
+
+## 디버깅 체크리스트
+
+`credentials: 'include'`로 쿠키가 안 갈 때 순서대로 확인할 항목이다.
+
+```text
+1. 네트워크 탭의 요청에 Cookie 헤더가 있는가?
+   → 없다면 SameSite 또는 Domain 문제
+
+2. 쿠키의 SameSite가 None인가? (cross-site인 경우)
+   → Application 탭에서 확인
+
+3. 쿠키에 Secure가 있는가? (SameSite=None일 때 필수)
+
+4. HTTPS로 접속하고 있는가? (Secure 쿠키는 HTTPS에서만)
+
+5. 응답에 Access-Control-Allow-Credentials: true 있는가?
+
+6. 응답의 Allow-Origin이 정확한 출처인가? (와일드카드 금지)
+
+7. Preflight(OPTIONS) 응답에도 같은 헤더가 있는가?
+
+8. 콘솔에 CORS 관련 에러 메시지가 있는가?
+```
+
+순서가 중요하다. 1~4는 클라이언트와 쿠키 속성의 문제, 5~8은 서버 응답의 문제다. 둘을 섞어서 확인하면 원인을 찾기 어려워진다.
+
+## 모든 제약이 결국 향하는 곳
+
+지금까지의 정책들은 표면적으로는 까다로워 보이지만, 결국 하나의 원칙으로 수렴한다.
+
+**"사용자가 어떤 사이트에 로그인했다는 사실을, 다른 사이트가 임의로 이용할 수 없어야 한다."**
+
+| 제약                                              | 막는 공격                                              |
+| ------------------------------------------------- | ------------------------------------------------------ |
+| Cross-origin 쿠키 기본 차단                       | CSRF                                                   |
+| `Allow-Origin: *` 금지 (with credentials)         | 임의의 사이트가 자격증명 요청을 도용                   |
+| `SameSite=None`에 `Secure` 강제                   | 평문 노출, 무분별한 cross-site 추적                    |
+| Preflight                                         | 쿠키 첨부 전에 서버의 허용 의사 확인                   |
+| `Partitioned` (CHIPS)                             | 사이트 간 쿠키 추적                                    |
+
+쿠키가 자동 첨부라는 편의를 제공하는 만큼, **남용되지 않도록 여러 겹의 안전장치**를 둔 것이다.
+
+## 마무리
+
+Cross-origin 환경에서 쿠키를 다루려면 다음 세 가지를 동시에 만족시켜야 한다.
+
+- **클라이언트**: `fetch`에 `credentials: 'include'` 명시
+- **쿠키 속성**: `SameSite=None; Secure` (cross-site인 경우)
+- **서버 응답**: `Access-Control-Allow-Origin`(정확한 출처) + `Access-Control-Allow-Credentials: true`, Preflight와 실제 응답 모두에 적용
+
+하나라도 빠지면 브라우저가 조용히 차단한다. 에러 메시지가 명확하지 않은 경우도 많아 디버깅이 까다롭지만, **SameSite → credentials → CORS** 의 3단계 검증을 분리해서 확인하면 어느 단계에서 막혔는지를 빠르게 좁힐 수 있다.
