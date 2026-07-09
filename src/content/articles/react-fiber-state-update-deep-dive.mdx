@@ -1,0 +1,335 @@
+---
+title: 'React Fiber 파헤치기: setState 한 줄이 화면에 반영되기까지'
+slug: 'react-fiber-state-update-deep-dive'
+summary: 'setState를 호출하면 컴포넌트가 다시 그려진다. 그 사이에서 실제로 무슨 일이 벌어지는가. 흔히 아는 상태 업데이트 모델을 교정하고, update 객체 생성부터 커밋까지 7단계를 추적하며 각 단계에서 Fiber가 하는 역할을 짚는다.'
+tags:
+  - 'react'
+  - 'fiber'
+  - 'reconciliation'
+  - 'useState'
+  - 'rendering'
+  - 'virtual-dom'
+skills:
+  - 'react'
+  - 'typescript'
+categories:
+  - 'react'
+publishedAt: '2026-07-09'
+modifiedAt: '2026-07-09'
+readingTime: 13
+featured: true
+published: true
+order: 32
+seoTitle: 'React Fiber 동작 원리 - setState부터 렌더링, 커밋까지'
+seoDescription: 'React에서 setState 한 줄이 화면에 반영되기까지의 과정을 7단계로 추적하며, 각 단계에서 Fiber가 담당하는 저장소·비교·작업 메모리 역할을 정리합니다.'
+---
+
+## 들어가며
+
+React를 쓰는 개발자라면 누구나 안다. `setState`(혹은 `useState`의 setter)를 호출하면 컴포넌트가 다시 그려진다는 것을.
+
+하지만 그 사이에서 **정확히 무슨 일이 벌어지는지** 설명하려고 하면 말문이 막힌다. `setCount(1)`을 부른 그 순간 `count`는 바로 바뀔까? `setCount`가 렌더 함수를 직접 호출하는 걸까? "이전 값과 비교한다"는데 그 이전 값은 대체 어디에 저장되어 있을까?
+
+이 질문들의 답에는 공통적으로 **Fiber**라는 존재가 등장한다. 이 글에서는 흔히 알고 있는 상태 업데이트 모델을 먼저 짚고, 그것을 교정한 뒤, `setState` 한 줄이 화면에 반영되기까지를 단계별로 추적하면서 각 단계에서 Fiber가 무엇을 하는지 정리한다.
+
+## 흔히 알고 있는 상태 업데이트 3단계
+
+많은 개발자가 상태 업데이트를 대략 이렇게 이해하고 있다.
+
+1. `useState` 같은 hook으로 상태가 업데이트된다.
+2. setter 함수 내부에서 컴포넌트 업데이트를 위한 렌더 함수를 호출한다.
+3. 업데이트된 컴포넌트에서 이전 값과 비교하여 상태를 반영한다.
+
+결과적으로 화면이 바뀌니 이 모델은 **틀리지 않았다.** 하지만 세 단계 모두 주어와 순서가 살짝 어긋나 있고, 바로 그 어긋난 자리에 Fiber가 숨어 있다. 하나씩 교정해 보자.
+
+## 그 모델을 교정하기
+
+### ① 상태는 setter를 호출한 순간에 바뀌지 않는다
+
+```tsx
+const Counter = () => {
+  const [count, setCount] = useState(0);
+
+  const handleClick = () => {
+    setCount(1);
+    console.log(count); // 여전히 0! 아직 안 바뀜
+  };
+
+  return <button onClick={handleClick}>{count}</button>;
+};
+```
+
+`setCount(1)`을 호출해도 그 줄 바로 아래에서 `count`는 여전히 `0`이다. setter가 하는 일은 값을 바꾸는 게 아니라 다음 두 가지다.
+
+- "다음 값은 1로 해달라"는 **업데이트 요청서(update 객체)를 큐에 쌓는다.**
+- "이 컴포넌트를 다시 그려야 한다"고 React에 **스케줄을 건다.**
+
+상태가 실제로 바뀌는 시점은 **다음 렌더에서 컴포넌트 함수가 다시 실행될 때**다.
+
+### ② setter는 렌더를 직접 호출하지 않는다
+
+setter는 렌더를 직접 실행하지 않고 **예약(schedule)만** 한다. 실제로 렌더를 돌리는 주체는 **React의 스케줄러**다. 이 분리 덕분에 배칭(batching)이 가능하다.
+
+```tsx
+const handleClick = () => {
+  setCount(1);
+  setFlag(true);
+  setName('kim');
+  // setter를 3번 호출했지만 렌더는 "예약"만 쌓이고,
+  // React가 나중에 "모아서 1번" 실행한다.
+};
+```
+
+만약 setter가 그 자리에서 렌더를 직접 호출했다면 세 번 렌더됐을 것이다. "예약만 걸고 실행 주체는 React"라는 분리가 핵심이다.
+
+### ③ 비교하는 주체는 컴포넌트가 아니라 React다
+
+"이전 값과 비교한다"는 방향은 맞다. 다만 컴포넌트가 스스로를 비교하는 게 아니라, **React가 이전 트리와 새 트리를 비교(diff)** 한다. 그리고 그 비교의 대상이자 저장소가 바로 **Fiber**다.
+
+교정된 전체 흐름은 다음과 같다.
+
+```text
+[setCount(1) 호출]
+      │
+      │  ① update 객체를 만들어 해당 컴포넌트의 큐에 넣음
+      │  ② "이 컴포넌트 다시 그려야 함" 스케줄 등록
+      ▼
+[React 스케줄러가 적절한 타이밍에 작업 시작]  ← 여기서 setter와 실행이 분리됨
+      │
+      ▼
+[Render 페이즈]
+      │  ③ 컴포넌트 함수 재실행 → useState가 큐 처리해서 count=1 반환
+      │  ④ 새 결과 vs 이전 결과 비교(diff) → 바뀐 곳에 flag 표시
+      │  (아직 DOM 안 건드림, 중단 가능)
+      ▼
+[Commit 페이즈]
+      │  ⑤ flag 붙은 곳만 실제 DOM 반영
+      │  ⑥ useEffect 실행
+      ▼
+[화면 업데이트 완료]
+```
+
+## Fiber란 무엇인가
+
+교정된 흐름에 계속 등장하는 Fiber를 짚고 넘어가자.
+
+### 왜 등장했나 — Stack Reconciler의 한계
+
+React 15까지의 재조정(reconciliation)은 **재귀 호출** 기반이었다. 컴포넌트 트리를 렌더링할 때 함수 콜스택을 타고 끝까지 동기적으로 파고들었고, **한번 시작하면 중간에 멈출 수 없었다.** 콜스택은 우리가 제어할 수 없기 때문이다.
+
+트리가 깊거나 크면 그 계산이 끝날 때까지 메인 스레드를 점유했고, 그동안 애니메이션이 끊기고 입력이 지연됐다. 브라우저는 1프레임(60fps 기준 약 16ms) 안에 스크립트 실행과 레이아웃, 페인트를 모두 처리해야 하는데 React가 그 시간을 다 잡아먹으면 화면이 멈춘다.
+
+### 핵심 아이디어
+
+Fiber는 **콜스택을 직접 관리할 수 있는 자료구조로 재구현**한 것이다. 각 엘리먼트마다 하나의 **Fiber 노드**가 대응되고, 재귀 대신 이 노드들을 연결 리스트로 순회한다. 그래서 언제든 "여기까지 했다"는 지점을 기억하고 멈췄다가 다시 시작할 수 있다.
+
+렌더링은 두 페이즈로 나뉜다.
+
+| 페이즈 | 하는 일 | 부수효과 | 중단 가능? |
+| --- | --- | --- | --- |
+| **Render (Reconciliation)** | 무엇이 바뀌었는지 계산 | 없음 | 가능 (중단·재개·폐기) |
+| **Commit** | 실제 DOM에 반영 | `useEffect`, DOM 변경 | 불가 (한 번에 완료) |
+
+### FiberNode 자료구조
+
+Fiber 노드는 대략 이런 필드를 가진다.
+
+```text
+FiberNode {
+  type,           // 컴포넌트 종류 (함수, 클래스, 'div' 등)
+  child,          // 첫 번째 자식 Fiber
+  sibling,        // 다음 형제 Fiber
+  return,         // 부모 Fiber (돌아갈 곳)
+  memoizedProps,  // 이전 props
+  memoizedState,  // 이전 state (Hook 연결 리스트)
+  updateQueue,    // 대기 중인 업데이트
+  alternate,      // 짝이 되는 Fiber (current ↔ workInProgress)
+  flags,          // 이 노드에 필요한 작업 (삽입/수정/삭제 등)
+}
+```
+
+이제 이 구조가 실제로 어떻게 쓰이는지, `setState` 한 줄을 따라가며 보자.
+
+## setState 한 줄을 7단계로 추적하기
+
+예제는 이걸로 고정한다. 현재 화면에는 `count = 0`인 버튼이 그려져 있다.
+
+```tsx
+const Counter = () => {
+  const [count, setCount] = useState(0);
+  return <button onClick={() => setCount(count + 1)}>{count}</button>;
+};
+```
+
+### 전제: 렌더 전에 Fiber는 이미 존재한다
+
+첫 렌더(mount) 때 React는 `Counter`에 대응하는 Fiber 노드를 만들어 둔다. 이 안에 hook 정보가 연결 리스트로 들어 있다.
+
+```text
+Counter의 Fiber (current)
+├── memoizedState ──▶ Hook0 { memoizedState: 0, queue: {...}, next: null }
+│                        └ 이게 count의 "현재 값 0"
+├── memoizedProps
+├── updateQueue
+└── flags: 0
+```
+
+**포인트:** `count`의 값 `0`은 컴포넌트 함수 안이 아니라 **Fiber의 Hook 객체 안**에 산다. 함수는 매번 사라지지만 Fiber는 남아 있어서, 이것이 "함수인데 상태를 기억하는" 원리다.
+
+### STEP 1 — update 객체를 만든다
+
+버튼 클릭으로 `setCount(count + 1)`이 실행된다. 이때 즉시 하는 일은 딱 하나, **업데이트 요청서를 만드는 것**이다.
+
+```text
+update = { action: 1, next: ... }   // "다음 값은 1로 해줘"
+```
+
+> 이 시점에 `count`는 아직 `0`이다. 값을 바꾸는 게 아니라 요청서만 만든 것이다.
+
+**Fiber의 역할:** 이 update 객체를 해당 Hook의 큐(`queue.pending`)에 매단다. 요청서를 보관하는 장소가 Fiber 안이다.
+
+```text
+Counter의 Fiber
+└── memoizedState ─▶ Hook0
+                       ├ memoizedState: 0   (아직 옛날 값)
+                       └ queue.pending ─▶ update{ action: 1 }  ← 여기 붙음
+```
+
+### STEP 2 — "이 Fiber 다시 그려야 함" 스케줄 등록
+
+setter는 렌더를 직접 호출하지 않는다. 대신 React에게 "이 Fiber에 처리할 일이 생겼다"고 알리고 끝낸다.
+
+**Fiber의 역할:** 해당 Fiber에서 루트까지 `return` 포인터를 따라 거슬러 올라가며 "이 경로에 작업이 있다"고 표시한다(`markUpdateLaneFromFiberToRoot`). 그래서 React는 나중에 루트에서 내려오면서 어느 가지에 일이 있는지 빠르게 찾을 수 있다.
+
+```text
+   Root  ← "이 아래 어딘가 작업 있음" 표시
+    │
+   App
+    │
+  Counter  ← dirty (여기가 시작점)
+```
+
+그리고 스케줄러에 "곧 작업을 돌려달라"고 예약한다. **함수 콜스택은 여기서 끝나고 반환된다.** 그래서 STEP 1의 `console.log(count)`가 여전히 `0`인 것이다.
+
+### STEP 3 — workInProgress Fiber 생성 (Double Buffering)
+
+스케줄러가 적절한 타이밍에 작업을 시작하며, 먼저 작업용 복사본 Fiber를 만든다.
+
+**Fiber의 역할:** 지금 화면인 `current` Fiber를 바탕으로 `workInProgress` Fiber를 만들고, 둘을 `alternate` 필드로 연결한다.
+
+```text
+current (화면: 0)  ◀── alternate ──▶  workInProgress (작업 중)
+```
+
+새 계산은 전부 `workInProgress`에서 진행하고 화면(`current`)은 완성될 때까지 건드리지 않는다. 그래서 계산 도중 중단돼도 화면이 깨지지 않는다. 게임에서 화면 깜빡임을 막는 더블 버퍼링과 같은 원리다.
+
+### STEP 4 — 컴포넌트 함수 재실행: useState가 새 값을 꺼낸다
+
+React가 `Counter()` 함수를 다시 호출한다. 함수 안에서 `useState(0)`를 또 만나는데, 여기서 인자 `0`은 **첫 렌더에서만 쓰이고 지금은 무시된다.**
+
+**Fiber의 역할:**
+
+1. React는 "지금 몇 번째 hook 차례인지" 커서로 추적하며 `workInProgress` Fiber의 Hook0을 집어온다.
+2. Hook0의 큐에 쌓인 update들을 하나씩 꺼내 적용한다(STEP 1에서 붙인 `action: 1`).
+
+```text
+이전 memoizedState: 0
+큐 처리: 0 → (action 1 적용) → 1
+새 memoizedState: 1
+```
+
+3. 그래서 `useState`가 이번엔 `[1, setCount]`을 반환한다.
+
+즉, "이전 값 0을 어디서 읽고, 새 값 1을 어디에 저장하는가"의 답이 전부 **Fiber의 Hook 객체**다. 컴포넌트 함수는 값을 저장하지 않는다. Fiber에서 읽고 Fiber에 쓴다. 이제 함수는 `<button>1</button>`이라는 새 엘리먼트(설계도)를 반환한다.
+
+> hook을 커서로 순서대로 집어오기 때문에, `if` 문 안에서 `useState`를 호출하면 순서가 어긋나 값이 뒤섞인다. 이것이 "hook은 최상위에서만 호출하라"는 규칙의 근본 이유다.
+
+### STEP 5 — Reconciliation(diff): 무엇이 바뀌었는지 계산
+
+React는 방금 나온 새 엘리먼트(`<button>1</button>`)를 이전 Fiber(`current`, 값 0)와 비교한다.
+
+**Fiber의 역할:** 타입(`button`)이 같으니 노드를 재사용하고, 텍스트만 `0 → 1`로 바뀐 것을 감지한다. 그리고 "이 노드는 텍스트 업데이트가 필요하다"는 표시를 `flags`에 기록한다.
+
+```text
+workInProgress button Fiber
+└── flags: Update   ← "DOM 텍스트 갱신 필요"
+```
+
+> 여기까지도 실제 DOM은 전혀 건드리지 않았다. 전부 Fiber 객체 위에서만 벌어진 계산이라, 이 단계는 언제든 중단·폐기할 수 있다.
+
+이 STEP 4~5가 Fiber 트리를 타고 내려갔다가(beginWork) 올라오는(completeWork) 순회 과정이고, 매 노드마다 "브라우저에 양보할까?"를 물어볼 수 있는 지점이다.
+
+### STEP 6 — Commit 페이즈: 실제 DOM에 반영
+
+계산이 끝난 `workInProgress` 트리를 들고 실제 반영에 들어간다. 이 단계는 중단 없이 한 번에 진행된다.
+
+**Fiber의 역할:** 트리를 훑으며 `flags`가 붙은 Fiber만 골라낸다(전부 순회하지 않아 효율적이다). `button` Fiber에 `Update` flag가 있으니 실제 DOM 텍스트를 `0 → 1`로 변경한다.
+
+```text
+실제 DOM: <button>0</button> → <button>1</button>  ← 이제야 화면이 바뀜
+```
+
+### STEP 7 — 트리 교체 및 정리
+
+**Fiber의 역할:** 방금 완성한 `workInProgress`를 새로운 `current`로 승격한다(포인터만 바꾼다). 다음 렌더 때는 이 트리가 "이전 값"의 기준이 된다.
+
+```text
+(교체 전)  current: 0     workInProgress: 1
+(교체 후)  current: 1  ←  이게 이제 화면이자 "이전 값" 기준
+```
+
+그리고 `useLayoutEffect`, `useEffect`에 등록된 함수들이 이 시점 이후에 실행된다.
+
+### 전체 흐름 한눈에
+
+```text
+setCount(1)
+   │
+STEP1  update 객체 생성   ─── Fiber: Hook 큐에 요청서 보관
+   │
+STEP2  스케줄 등록        ─── Fiber: root까지 dirty 표시 (콜스택 여기서 끝)
+   │   ┈┈┈┈┈┈┈ (React 스케줄러가 나중에 재개) ┈┈┈┈┈┈┈
+   │
+STEP3  wip Fiber 생성     ─── Fiber: current 복사 (double buffering)
+   │
+STEP4  함수 재실행         ─── Fiber: Hook 큐 처리 → 0에서 1 계산·저장
+   │
+STEP5  diff               ─── Fiber: flags에 "Update" 기록 (DOM 아직 안 건드림)
+   │
+STEP6  commit             ─── Fiber: flags 붙은 노드만 실제 DOM 반영
+   │
+STEP7  트리 swap          ─── Fiber: wip → current 승격
+   │
+화면 = 1 ✅
+```
+
+## 이 과정에서 Fiber의 역할 세 가지
+
+복잡해 보이지만 Fiber가 하는 일은 결국 세 가지로 압축된다.
+
+1. **저장소** — 상태(`count`)와 대기 중인 업데이트를 담는 그릇이다. 함수는 값을 갖지 않고 Fiber가 갖는다. (STEP 1, 4)
+2. **비교 대상** — `current`(이전)와 `workInProgress`(새) 두 트리로 존재하기 때문에, "이전 vs 새 비교"가 곧 두 Fiber를 대조하는 것이다. (STEP 3, 5, 7)
+3. **작업 메모리** — 어디까지 계산했는지를 콜스택 대신 객체에 담아, 중단·재개·폐기를 가능하게 한다. (STEP 5에서 DOM을 안 건드릴 수 있는 이유)
+
+## Fiber가 열어준 것들
+
+"중단 가능한 렌더링"이라는 Fiber의 기반 위에서 이후 기능들이 나왔다.
+
+- **Concurrent Rendering** (React 18) — 여러 업데이트를 우선순위 기반으로 처리
+- **`useTransition` / `startTransition`** — 급하지 않은 업데이트를 낮은 우선순위로 미뤄, 무거운 렌더 도중에도 입력을 매끄럽게 유지
+- **`Suspense`** — 데이터·코드 로딩 중 대기 상태 표현
+- **자동 배칭(Automatic Batching)** — Promise, `setTimeout` 안에서도 setter 호출을 모아 한 번에 렌더
+
+이들은 모두 "작업 상태를 콜스택이 아니라 Fiber라는 객체에 저장한다"는 STEP 3의 구조가 있었기에 가능했다.
+
+## 마치며
+
+흔히 아는 상태 업데이트 3단계는 결과적으로는 맞지만, 세 가지를 교정하면 정확해진다.
+
+- 상태는 setter를 호출한 순간에 바뀌지 않는다. update 요청서를 큐에 쌓을 뿐이다.
+- setter는 렌더를 직접 호출하지 않는다. 스케줄러에 예약만 한다.
+- 비교하는 주체는 컴포넌트가 아니라 React이며, 그 대상은 두 개의 Fiber 트리다.
+
+그리고 이 세 교정의 중심에는 언제나 Fiber가 있다. **상태를 저장하는 그릇이자, 이전과 새것을 비교하는 대상이자, 중단·재개를 가능하게 하는 작업 메모리.** 함수 컴포넌트가 매번 새로 실행돼도 상태가 유지되는 것도, 무거운 렌더 도중 입력이 얼지 않는 것도 전부 이 하나의 자료구조에서 비롯된다.
+
+다음으로 파고들 만한 지점은 STEP 4의 "hook 커서"다. React가 hook을 어떻게 순서대로 집어오는지 그 연결 리스트 구조를 들여다보면, hook 규칙이 왜 존재하는지 근본에서 이해할 수 있다.
