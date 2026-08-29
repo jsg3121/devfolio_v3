@@ -1,6 +1,7 @@
 ---
 import { getAllSideProjects } from '@/lib/content/sideProjects';
 import Tag from '@/components/common/Tag.astro';
+import { getRevealDelay } from '@/lib/utils/revealStagger';
 
 const projects = await getAllSideProjects();
 
@@ -45,7 +46,7 @@ const statusLabel: Record<string, { text: string; className: string }> = {
               href={`/side-projects/${project.data.slug}`}
               class="hover-lift group flex flex-col p-6 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 no-underline"
               data-reveal="up"
-              data-reveal-delay={String(index * 80)}
+              data-reveal-delay={getRevealDelay(index)}
             >
               <header class="mb-4">
                 <div class="flex items-center justify-between mb-3">

@@ -1,5 +1,6 @@
 ---
 import Tag from '@/components/common/Tag.astro';
+import { getRevealDelay } from '@/lib/utils/revealStagger';
 
 interface StackGroup {
   category: string;
@@ -41,7 +42,7 @@ const stacks: StackGroup[] = [
     <div class="space-y-8">
       {
         stacks.map((group, index) => (
-          <div data-reveal="up" data-reveal-delay={String(index * 80)}>
+          <div data-reveal="up" data-reveal-delay={getRevealDelay(index)}>
             <h3 class="text-xs font-medium text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-3">
               {group.category}
             </h3>

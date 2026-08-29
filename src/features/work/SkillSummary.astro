@@ -1,4 +1,6 @@
 ---
+import { getRevealDelay } from '@/lib/utils/revealStagger';
+
 interface SkillAxis {
   title: string;
   description: string;
@@ -48,7 +50,7 @@ const skillAxes: SkillAxis[] = [
           <article
             class="p-6 bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700"
             data-reveal="up"
-            data-reveal-delay={String(index * 80)}
+            data-reveal-delay={getRevealDelay(index)}
           >
             <h3 class="text-base font-semibold text-gray-900 dark:text-slate-100 mb-2">
               {axis.title}

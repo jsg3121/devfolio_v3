@@ -1,6 +1,7 @@
 ---
 import { getFeaturedCareers } from '@/lib/content/career';
 import Tag from '@/components/common/Tag.astro';
+import { getRevealDelay } from '@/lib/utils/revealStagger';
 
 const careers = await getFeaturedCareers();
 
@@ -23,7 +24,7 @@ const formatDate = (date: Date): string => {
           <div
             class="featured-work-item border-l-2 border-gray-200 dark:border-slate-700 pl-6 md:pl-8"
             data-reveal="left"
-            data-reveal-delay={String(index * 150)}
+            data-reveal-delay={getRevealDelay(index, 150)}
           >
             <div class="flex flex-col md:flex-row md:items-baseline md:gap-4 mb-3">
               <h3 class="text-xl md:text-2xl font-semibold text-gray-900 dark:text-slate-100">
