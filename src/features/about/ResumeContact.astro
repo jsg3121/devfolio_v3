@@ -1,4 +1,6 @@
 ---
+import { RESUME_DOCUMENTS } from '@/lib/constants/resume';
+
 const contactLinks = [
   { label: 'Email', href: 'mailto:xodm95@gmail.com', description: 'xodm95@gmail.com' },
   {
@@ -14,35 +16,53 @@ const contactLinks = [
   <div class="max-w-5xl mx-auto px-6">
     <div class="grid md:grid-cols-2 gap-12 md:gap-16">
       <!-- Resume -->
-      <div data-reveal="up">
+      <div id="documents" class="scroll-mt-24" data-reveal="up">
         <h2
           class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-6"
         >
           Resume
         </h2>
         <p class="text-base text-gray-600 dark:text-slate-300 leading-relaxed mb-6">
-          경력 전체를 정리한 PDF 이력서를 다운로드하실 수 있습니다.
+          이력서와 포트폴리오를 PDF로 다운로드하실 수 있습니다.
         </p>
-        <a
-          href="/resume/resume-sungyujang.pdf"
-          download
-          class="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 dark:bg-slate-200 text-white dark:text-slate-900 text-sm font-medium rounded-lg hover:bg-gray-800 dark:hover:bg-slate-300 transition-colors"
-        >
-          <svg
-            class="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            ></path>
-          </svg>
-          이력서 다운로드 (PDF)
-        </a>
+        <ul class="space-y-4">
+          {
+            RESUME_DOCUMENTS.map((document) => (
+              <li>
+                <a
+                  href={document.href}
+                  download={document.fileName}
+                  class="group flex items-center justify-between gap-4 p-3 -mx-3 rounded-lg hover:bg-white dark:hover:bg-slate-700 transition-colors"
+                >
+                  <div>
+                    <p class="text-sm font-medium text-gray-900 dark:text-slate-100">
+                      {document.label}
+                      <span class="ml-2 text-[10px] font-semibold text-gray-400 dark:text-slate-500 align-middle">
+                        PDF
+                      </span>
+                    </p>
+                    <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
+                      {document.description}
+                    </p>
+                  </div>
+                  <svg
+                    class="w-4 h-4 text-gray-300 dark:text-slate-600 shrink-0 transition-all group-hover:text-gray-500 dark:group-hover:text-slate-400 group-hover:translate-y-0.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                </a>
+              </li>
+            ))
+          }
+        </ul>
       </div>
 
       <!-- Contact -->
