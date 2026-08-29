@@ -1,6 +1,7 @@
 ---
 import { getFeaturedArticles } from '@/lib/content/articles';
 import Tag from '@/components/common/Tag.astro';
+import { getRevealDelay } from '@/lib/utils/revealStagger';
 
 const articles = await getFeaturedArticles();
 ---
@@ -20,7 +21,7 @@ const articles = await getFeaturedArticles();
             href={`/articles/${article.data.slug}`}
             class="h-fit md:min-h-40 hover-lift block group bg-white dark:bg-slate-800 rounded-xl p-6 border border-gray-100 dark:border-slate-700"
             data-reveal="up"
-            data-reveal-delay={String(index * 100)}
+            data-reveal-delay={getRevealDelay(index, 100)}
             transition:name={`article-card-${article.data.slug}`}
           >
             <div class="w-full h-5 flex flex-wrap gap-1.5 mb-2">

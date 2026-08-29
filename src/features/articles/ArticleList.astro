@@ -1,6 +1,7 @@
 ---
 import { getAllArticles } from '@/lib/content/articles';
 import Tag from '@/components/common/Tag.astro';
+import { getRevealDelay } from '@/lib/utils/revealStagger';
 
 const articles = await getAllArticles();
 ---
@@ -25,7 +26,7 @@ const articles = await getAllArticles();
             href={`/articles/${article.data.slug}`}
             class="hover-lift group block bg-white dark:bg-slate-800 rounded-xl p-6 md:p-8 border border-gray-200 dark:border-slate-700"
             data-reveal="up"
-            data-reveal-delay={String(index * 100)}
+            data-reveal-delay={getRevealDelay(index)}
           >
             <div class="flex flex-wrap gap-1.5 mb-3">
               {article.data.categories.map((category: string) => (
