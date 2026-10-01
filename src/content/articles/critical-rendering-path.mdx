@@ -1,0 +1,420 @@
+---
+title: '응답 이후 화면까지 — Critical Rendering Path로 이해하는 브라우저 렌더링'
+slug: 'critical-rendering-path'
+summary: 'HTML 응답을 받은 브라우저가 DOM과 CSSOM을 만들고 Layout·Paint·Composite를 거쳐 첫 화면을 그리기까지의 과정을 정리합니다. CSS와 JavaScript가 렌더링을 막는 이유를 살펴보고, 이를 줄이는 방법과 개발자 도구로 확인하는 방법을 다룹니다.'
+tags:
+  - 'browser'
+  - 'rendering'
+  - 'critical-rendering-path'
+  - 'dom'
+  - 'cssom'
+  - 'javascript'
+skills:
+  - 'web'
+  - 'html'
+  - 'css'
+  - 'javascript'
+categories:
+  - 'web'
+publishedAt: '2026-10-01'
+featured: true
+published: true
+order: 37
+seoTitle: 'Critical Rendering Path — DOM·CSSOM부터 Composite까지 브라우저 렌더링 과정'
+seoDescription: 'HTML 파싱, CSSOM 생성, JavaScript 실행, Render Tree, Layout, Paint, Composite로 이어지는 브라우저 렌더링 과정을 설명합니다. CSS와 JavaScript가 렌더링을 막는 이유와 defer·async, Long Task 분할 등 블로킹을 줄이는 방법을 정리합니다.'
+---
+
+## 들어가며
+
+이전 글에서는 URL을 입력한 뒤 DNS 조회, TCP 연결, TLS 협상을 거쳐 HTTP 응답을 받기까지의 과정을 따라갔다. 그 글은 응답을 받는 데서 멈췄는데, 사용자 입장에서는 그 이후가 더 중요하다. 응답이 빨리 도착해도 화면이 늦게 그려지면 느린 사이트이기 때문이다.
+
+이번 글에서는 브라우저가 HTML 응답의 첫 바이트를 받은 순간부터 첫 화면의 픽셀을 그리기까지의 과정을 정리한다. 이 경로를 흔히 **Critical Rendering Path(CRP)** 라고 부른다. 각 단계에서 무슨 일이 일어나는지와 함께, 어떤 리소스가 이 경로를 막고 늘리는지, 그리고 그 블로킹을 어떻게 줄일 수 있는지를 함께 살펴본다.
+
+설명은 Chrome(Blink, V8)을 기준으로 하며, 단계는 이해하기 쉽도록 단순화했다. 실제 엔진은 이보다 더 잘게 나뉜 파이프라인을 사용하고, 브라우저마다 세부 구현이 다르다.
+
+## 1. Critical Rendering Path란
+
+Critical Rendering Path는 **브라우저가 HTML, CSS, JavaScript를 받아 첫 화면을 그리기까지 반드시 거쳐야 하는 단계들**을 말한다.
+
+```
+HTML ──▶ DOM ───────┐
+                    ├──▶ Style 계산(Render Tree) ──▶ Layout ──▶ Paint ──▶ Composite ──▶ 화면
+CSS  ──▶ CSSOM ─────┘
+           ▲     ▲
+           └─ JS ┘  (DOM과 CSSOM을 읽고 수정하며, 파싱을 막을 수 있음)
+```
+
+여기서 "Critical"은 **첫 화면을 그리기 전에 끝나야만 하는 작업과 리소스**라는 뜻이다. 이미지, 비동기 스크립트, 화면 밖 콘텐츠처럼 화면을 먼저 그린 뒤에 처리해도 되는 것은 Critical에 포함되지 않는다.
+
+이 용어는 HTML 명세에 정의된 이름은 아니다. Google이 웹 성능 최적화 자료를 정리하면서 널리 쓰이기 시작했고, 지금은 MDN과 web.dev에서도 같은 이름으로 설명한다. 명세에서는 이 경로를 막는 요소를 가리키는 말로 **parser-blocking**(파서를 멈추게 함), **render-blocking**(렌더링을 막음) 같은 용어를 사용한다. [MDN — Critical rendering path](https://developer.mozilla.org/en-US/docs/Web/Performance/Guides/Critical_rendering_path)
+
+## 2. 누가 처리하는가
+
+단계별로 보기 전에, 이 일을 브라우저의 어느 부분이 맡는지 짧게 짚고 넘어가려 한다. 뒤에서 JavaScript가 렌더링을 막는 이유를 이해하는 데 필요하기 때문이다.
+
+브라우저 안에는 역할이 다른 두 엔진이 있다.
+
+| 엔진        | 하는 일                                      | Chrome | Safari         | Firefox      |
+| ----------- | -------------------------------------------- | ------ | -------------- | ------------ |
+| 렌더링 엔진 | HTML·CSS 파싱, DOM·CSSOM 생성, Layout, Paint | Blink  | WebKit         | Gecko        |
+| JS 엔진     | JavaScript 파싱·컴파일·실행                  | V8     | JavaScriptCore | SpiderMonkey |
+
+DOM과 CSSOM은 렌더링 엔진이 만든다. JS 엔진은 JavaScript를 실행할 뿐 DOM을 직접 가지고 있지 않다. `document.querySelector()` 같은 DOM API는 JavaScript 언어의 기능이 아니라 브라우저가 연결해 둔 Web API다. 같은 V8을 쓰는 Node.js에 `document`가 없는 이유가 여기에 있다.
+
+중요한 점은 **두 엔진이 같은 메인 스레드에서 동작한다**는 것이다. HTML 파싱, 스타일 계산, Layout, Paint, JavaScript 실행이 모두 한 스레드를 번갈아 사용한다. 그래서 JavaScript가 실행되는 동안에는 파싱도, 화면 갱신도 일어나지 않는다. 이 구조가 이후에 나오는 블로킹 문제의 바탕이 된다.
+
+## 3. DOM 생성 — HTML 파싱
+
+브라우저는 HTML 바이트를 다음 순서로 변환해 DOM(Document Object Model)을 만든다.
+
+```
+Bytes ──▶ Characters ──▶ Tokens ──▶ Nodes ──▶ DOM Tree
+3C 68 74…    "<html>…"    StartTag:html   HTMLElement   document
+                          StartTag:body                  └ html
+                          Character:"Hi"                   └ body
+```
+
+1. **Bytes → Characters**: `Content-Type`에 지정된 문자 인코딩(보통 UTF-8)으로 디코딩한다.
+2. **Tokenizing**: HTML 명세에 정의된 상태 기계가 `StartTag`, `EndTag`, `Character` 같은 토큰을 만든다.
+3. **Tree Construction**: 토큰을 노드로 바꾸고 부모·자식 관계를 엮어 트리를 만든다. 닫히지 않은 태그를 보정하는 것도 이 단계다. HTML 파서는 문법 오류가 있어도 멈추지 않고 정해진 규칙대로 복구한다.
+
+HTML 파싱은 **점진적**이다. 문서를 끝까지 받을 때까지 기다리지 않고, 네트워크에서 도착한 청크부터 바로 파싱한다. 서버가 `<head>` 부분을 먼저 보내면 브라우저가 그만큼 일찍 CSS와 스크립트 요청을 시작할 수 있는 이유다.
+
+여기에 **Preload Scanner**가 함께 동작한다. 메인 파서가 스크립트 때문에 멈춰 있는 동안, 프리로드 스캐너는 남은 HTML을 미리 훑어보며 `<link>`, `<script src>`, `<img>` 같은 리소스를 먼저 요청한다. 다만 HTML 마크업에 드러나지 않는 리소스, 예를 들어 JavaScript가 동적으로 추가하는 스크립트나 CSS의 `background-image`는 스캐너가 찾지 못한다. 이런 리소스를 앞당기고 싶을 때 `<link rel="preload">`를 사용한다. [web.dev — Don't fight the browser preload scanner](https://web.dev/articles/preload-scanner)
+
+## 4. CSSOM 생성 — CSS 파싱
+
+CSS도 HTML과 비슷하게 바이트에서 토큰, 노드를 거쳐 CSSOM(CSS Object Model)으로 만들어진다. 각 요소의 최종 스타일은 **cascade**(우선순위, 명시도, 선언 순서)와 **상속**으로 결정된다.
+
+HTML과 다른 점은 CSS가 **렌더링을 막는 리소스**라는 것이다. CSS는 뒤에 나오는 규칙이 앞의 규칙을 덮어쓸 수 있다. 일부만 파싱한 상태로 화면을 그리면 나머지 규칙이 도착할 때마다 스타일이 바뀌면서 화면이 깜빡이게 된다(FOUC, Flash of Unstyled Content). 그래서 브라우저는 렌더링을 막는 CSS가 모두 로드되고 CSSOM이 준비될 때까지 화면을 그리지 않는다.
+
+모든 CSS가 렌더링을 막는 것은 아니다. `media` 속성의 조건이 현재 환경과 맞지 않는 스타일시트는 다운로드는 하지만 우선순위를 낮추고 렌더링을 막지 않는다.
+
+```html
+<!-- 렌더링 차단 -->
+<link rel="stylesheet" href="main.css" />
+<!-- 차단하지 않음 -->
+<link rel="stylesheet" href="print.css" media="print" />
+<!-- 조건이 맞을 때만 차단 -->
+<link rel="stylesheet" href="wide.css" media="(min-width: 1024px)" />
+```
+
+[web.dev — Render blocking CSS](https://web.dev/articles/critical-rendering-path/render-blocking-css)
+
+## 5. JavaScript가 렌더링을 막는 이유
+
+CRP를 길게 만드는 가장 흔한 원인은 JavaScript다. JavaScript가 렌더링을 막는 방식은 네 가지로 나눠 보면 이해하기 쉽다.
+
+### 파서를 멈춘다 — HTML 자체를 바꿀 수 있기 때문에
+
+```html
+<body>
+  <p>A</p>
+  <script>
+    document.write('<div>');
+  </script>
+  <p>B</p>
+</body>
+```
+
+`document.write()`는 DOM 노드를 수정하는 API가 아니라 **파서의 입력 스트림에 문자열을 끼워 넣는** API다. 위 예시에서는 스크립트가 실행된 뒤 `<p>B</p>`가 새로 열린 `<div>`의 자식으로 해석된다. 스크립트를 실행해 보기 전에는 뒤에 오는 HTML을 어떻게 해석할지 확정할 수 없는 셈이다.
+
+그래서 브라우저는 일반 `<script>`를 만나면 **HTML 파싱을 멈추고**, 외부 스크립트라면 다운로드가 끝날 때까지 기다린 뒤 실행하고 나서야 파싱을 이어간다. 스크립트 입장에서도 "실행 시점까지 파싱된 DOM만 존재한다"는 전제가 지켜져야 한다. `<head>` 안의 스크립트에서 `document.querySelector('p')`가 `null`을 반환하는 이유다.
+
+실제로 `document.write()`를 쓰는 코드는 드물지만, 브라우저는 스크립트가 이 API를 쓸지 미리 알 수 없다. 그래서 별도의 표시가 없는 스크립트는 모두 최악의 경우를 가정하고 파서를 멈춘다. 뒤에서 다룰 `defer`와 `async`는 이 스크립트가 파싱 순서에 의존하지 않는다는 것을 브라우저에 알려주는 표시라고 볼 수 있다. [HTML Standard — Scripting](https://html.spec.whatwg.org/multipage/scripting.html#the-script-element)
+
+### CSS를 기다린다 — 스타일을 읽을 수 있기 때문에
+
+```html
+<link rel="stylesheet" href="big.css" />
+<script>
+  const width = getComputedStyle(document.body).width;
+</script>
+```
+
+스크립트는 `getComputedStyle()`이나 `offsetWidth`로 스타일 정보를 읽을 수 있다. CSS가 아직 로드되지 않았다면 잘못된 값을 읽게 되므로, 브라우저는 **앞에 있는 스타일시트가 로드될 때까지 스크립트 실행을 보류**한다. HTML 명세에서는 이런 스타일시트를 script-blocking style sheet라고 부른다.
+
+결과적으로 다음과 같은 직렬 체인이 생긴다.
+
+```
+big.css      ▓▓▓▓▓▓▓▓▓▓ (다운로드)
+script                  ▓ (실행)
+HTML 파싱    ███▌ ····· 대기 ····· ▐█████
+```
+
+CSS 다운로드가 끝나야 스크립트가 실행되고, 스크립트가 끝나야 HTML 파싱이 재개된다. 스크립트가 스타일을 전혀 읽지 않더라도 브라우저는 기다린다.
+
+### 메인 스레드를 차지한다 — 렌더링과 같은 스레드를 쓰기 때문에
+
+앞에서 정리했듯이 JavaScript 실행과 렌더링은 같은 메인 스레드를 사용한다. 이벤트 루프는 **Task 하나를 실행하고, Microtask를 모두 비운 뒤, 필요하면 렌더링을 갱신**하는 순서로 돈다. 따라서 실행 중인 JavaScript가 끝나기 전까지는 렌더링 단계로 넘어갈 수 없다.
+
+```js
+button.addEventListener('click', () => {
+  spinner.hidden = false; // 스피너를 보여주려 하지만
+  heavyCalculation(); // 500ms가 걸리는 동기 작업
+  spinner.hidden = true; // 그 사이에 렌더링 기회가 없어 스피너가 한 번도 보이지 않는다
+});
+```
+
+이 문제는 초기 로딩이 끝난 뒤에도 계속된다. 50ms를 넘는 작업을 **Long Task**라고 부르는데, 이 시간 동안에는 화면 갱신과 입력 처리가 모두 멈춘다. Promise 체인처럼 Microtask가 계속 이어지는 경우도 마찬가지다. 비동기처럼 보여도 Microtask 큐가 빌 때까지는 렌더링으로 넘어가지 않는다.
+
+예외도 있다. 스크롤과 `transform`, `opacity` 애니메이션은 별도의 Compositor 스레드에서 처리될 수 있어서 메인 스레드가 막혀 있어도 계속 움직인다. 이 부분은 뒤의 Composite 단계에서 다시 다룬다.
+
+### 비용 자체가 크다 — 다운로드, 파싱, 컴파일, 실행
+
+JavaScript는 같은 크기의 이미지보다 처리 비용이 크다. 이미지는 디코딩하면 끝나지만, JavaScript는 다운로드한 뒤 파싱하고 컴파일하고 실행까지 해야 하며 그 상당 부분이 메인 스레드에서 일어난다. 같은 번들이라도 저사양 모바일 기기에서는 훨씬 오래 걸린다.
+
+클라이언트에서 화면을 모두 그리는 SPA라면 영향이 더 크다. 초기 HTML에 콘텐츠 없이 빈 루트 요소만 있으면, JavaScript가 실행되기 전까지 그릴 내용 자체가 없기 때문이다.
+
+| 원인                    | 막는 대상                           | 시점           |
+| ----------------------- | ----------------------------------- | -------------- |
+| `document.write` 가능성 | HTML 파싱(DOM 생성)                 | 초기 로딩      |
+| 스타일 조회 가능성      | 스크립트 실행, 연쇄적으로 HTML 파싱 | 초기 로딩      |
+| 메인 스레드 공유        | Style, Layout, Paint, 입력 처리     | 로딩 중과 이후 |
+| 다운로드·파싱·실행 비용 | 위 모든 작업의 지속 시간            | 로딩 중과 이후 |
+
+## 6. Render Tree에서 화면까지
+
+DOM과 CSSOM이 준비되면 실제로 화면을 그리는 단계로 넘어간다.
+
+### Style 계산과 Render Tree
+
+DOM과 CSSOM을 결합해 각 노드의 최종 스타일(Computed Style)을 계산하고, **실제로 화면에 보일 노드만** 모은다.
+
+```
+DOM                          Render Tree
+html                         html
+├ head        ✗ 제외         └ body
+│ └ script    ✗ 제외            ├ h1
+└ body                          └ p
+  ├ h1
+  ├ p
+  └ div.modal (display: none) ✗ 제외
+```
+
+| 속성                  | Render Tree 포함 | 공간 차지             |
+| --------------------- | ---------------- | --------------------- |
+| `display: none`       | 포함하지 않음    | 차지하지 않음         |
+| `visibility: hidden`  | 포함             | 차지함(보이지만 않음) |
+| `opacity: 0`          | 포함             | 차지함(이벤트도 받음) |
+| `::before`, `::after` | 포함             | 차지함(DOM에는 없음)  |
+
+### Layout
+
+Layout은 각 노드가 **뷰포트 안에서 어디에, 얼마나 크게** 놓이는지 계산하는 단계다. `%`, `rem`, `vw`, `auto` 같은 상대 값과 flex, grid 배치를 모두 계산해 각 박스의 위치와 크기를 확정한다.
+
+Layout은 첫 렌더링 이후에도 다시 일어난다. 너비, 높이, 여백, 글자 크기처럼 크기와 위치에 영향을 주는 속성이 바뀌거나, DOM 노드가 추가·삭제되거나, 뷰포트 크기가 바뀌면 다시 계산해야 한다. 이를 **Reflow**라고도 부른다.
+
+이미지에 `width`와 `height`를 지정하지 않으면, 이미지가 로드된 뒤에야 크기가 정해지면서 Layout이 다시 일어나고 아래 콘텐츠가 밀려난다. 이것이 CLS(Cumulative Layout Shift)의 대표적인 원인이다.
+
+### Paint
+
+Paint 단계에서는 위치가 정해진 박스를 **어떤 순서로, 무엇을 그릴지** 정한다. 이 단계의 결과물은 아직 픽셀이 아니라 "이 영역을 흰색으로 채운다", "이 위치에 텍스트를 그린다" 같은 **그리기 명령 목록**이다. 그리는 순서는 stacking context와 `z-index`를 따른다.
+
+색상이나 그림자처럼 위치와 크기에 영향을 주지 않는 속성만 바뀌면 Layout은 건너뛰고 Paint부터 다시 실행한다. 이를 **Repaint**라고 부른다. `box-shadow`, `filter: blur()` 같은 속성은 Paint 비용이 큰 편이다.
+
+### Rasterize와 Composite
+
+브라우저는 페이지를 여러 **레이어**로 나눠서 관리한다. `transform`이나 `opacity`가 애니메이션 중인 요소, `will-change`가 지정된 요소, `<video>`, `<canvas>` 같은 요소는 별도 레이어로 분리될 수 있다.
+
+Paint에서 만든 그리기 명령은 **Rasterize** 단계에서 실제 픽셀로 바뀐다. 레이어는 타일 단위로 나뉘고, 뷰포트에 가까운 타일부터 GPU에서 래스터화된다. 마지막으로 **Composite** 단계에서 래스터화된 레이어들을 순서대로 합성해 최종 화면을 만든다.
+
+Composite는 메인 스레드가 아닌 **Compositor 스레드**에서 일어난다. 그래서 메인 스레드가 JavaScript로 바쁘더라도 스크롤이나 `transform` 애니메이션은 부드럽게 동작할 수 있다. [Chrome for Developers — Inside look at modern web browser (part 3)](https://developer.chrome.com/blog/inside-browser-part3)
+
+## 7. 변경 비용 — 어느 단계부터 다시 실행되는가
+
+첫 화면을 그린 뒤 스타일이 바뀌면, 바뀐 속성에 따라 파이프라인의 다른 지점부터 다시 실행된다.
+
+```
+JavaScript / Style ──▶ Layout ──▶ Paint ──▶ Composite
+```
+
+| 바뀐 속성의 예                            | 다시 실행되는 단계                 | 비용 |
+| ----------------------------------------- | ---------------------------------- | ---- |
+| `width`, `height`, `margin`, `font-size`  | Style → Layout → Paint → Composite | 높음 |
+| `color`, `background-color`, `box-shadow` | Style → Paint → Composite          | 중간 |
+| `transform`, `opacity`                    | Style → Composite                  | 낮음 |
+
+애니메이션을 `left: 0`에서 `left: 100px`로 움직이는 대신 `transform: translateX(100px)`로 구현하는 것을 권장하는 이유가 여기에 있다. 다만 `will-change`로 레이어를 무분별하게 늘리면 레이어마다 GPU 메모리를 사용하므로, 필요한 요소에만 지정하는 것이 좋다.
+
+### Forced Synchronous Layout
+
+브라우저는 스타일 변경을 모아 두었다가 프레임마다 한 번 Layout을 계산한다. 그런데 JavaScript가 그 사이에 `offsetHeight`, `getBoundingClientRect()` 같은 기하 정보를 읽으면, 정확한 값을 돌려주기 위해 **그 자리에서 Layout을 강제로 실행**한다.
+
+```js
+// 읽기와 쓰기를 번갈아 하면 반복할 때마다 Layout이 강제로 실행된다
+items.forEach((item) => {
+  const height = item.offsetHeight; // 읽기 → Layout 실행
+  item.style.height = `${height + 10}px`; // 쓰기 → Layout 무효화
+});
+
+// 읽기를 먼저 모으고, 쓰기를 나중에 모은다
+const heights = items.map((item) => item.offsetHeight);
+items.forEach((item, index) => {
+  item.style.height = `${heights[index] + 10}px`;
+});
+```
+
+첫 번째 코드처럼 읽기와 쓰기가 반복되면서 Layout이 계속 강제되는 현상을 **Layout Thrashing**이라고 부른다. [web.dev — Avoid large, complex layouts and layout thrashing](https://web.dev/articles/avoid-large-complex-layouts-and-layout-thrashing)
+
+## 8. 타임라인과 지표
+
+CRP의 각 단계는 성능 지표와 직접 연결된다.
+
+```
+요청 ── TTFB ── HTML 파싱 ─────────────────── DOMContentLoaded ────── load
+                  │                                │                     │
+                  └ CSSOM 준비 ── FCP ── LCP       defer 스크립트 실행 완료   모든 리소스 로드 완료
+```
+
+| 지점             | 의미                                                         |
+| ---------------- | ------------------------------------------------------------ |
+| FCP              | 텍스트나 이미지 같은 콘텐츠가 처음 그려진 시점               |
+| LCP              | 뷰포트에서 가장 큰 콘텐츠가 그려진 시점                      |
+| DOMContentLoaded | HTML 파싱이 끝나고 `defer` 스크립트까지 실행된 시점          |
+| load             | 이미지, 폰트, iframe을 포함한 모든 리소스의 로드가 끝난 시점 |
+
+CRP 자체의 길이는 다음 세 가지 기준으로 가늠할 수 있다.
+
+1. **Critical 리소스 수**: 첫 렌더링을 막는 리소스의 개수(HTML, 렌더링을 막는 CSS, 파서를 막는 JavaScript)
+2. **Critical 바이트**: 그 리소스들의 전체 크기
+3. **Critical 경로 길이**: 리소스 간 의존 관계 때문에 필요한 네트워크 왕복 횟수
+
+```
+HTML (1 RTT) ──▶ CSS (+1 RTT) ──▶ CSS 안의 @import (+1 RTT) ──▶ 웹폰트 (+1 RTT)
+```
+
+위처럼 리소스를 받아야 다음 리소스를 발견할 수 있는 구조라면, 각 파일이 작더라도 왕복 횟수만큼 첫 렌더링이 늦어진다. CRP 최적화는 결국 이 세 가지를 줄이는 작업이다. [web.dev — Analyzing critical rendering path performance](https://web.dev/articles/critical-rendering-path/analyzing-crp)
+
+## 9. 블로킹을 줄이는 방법
+
+### 파서를 막지 않게 하기 — defer, async, module
+
+```html
+<script src="app.js" defer></script>
+<script type="module" src="main.js"></script>
+<script src="analytics.js" async></script>
+```
+
+| 방식            | 다운로드           | 실행 시점                                | 실행 순서  |
+| --------------- | ------------------ | ---------------------------------------- | ---------- |
+| 속성 없음       | 파싱을 멈추고 받음 | 다운로드 직후                            | 문서 순서  |
+| `async`         | 파싱과 병렬        | 다운로드가 끝나는 즉시                   | 보장 안 됨 |
+| `defer`         | 파싱과 병렬        | HTML 파싱이 끝난 뒤, DOMContentLoaded 전 | 문서 순서  |
+| `type="module"` | 파싱과 병렬        | 기본적으로 `defer`와 같음                | 문서 순서  |
+
+```
+속성 없음  HTML ████▌            ▐████████
+           JS        ▓▓▓▓ 다운로드 ▓▓ 실행
+
+async      HTML ██████████▌   ▐█████
+           JS    ▓▓▓▓ 다운로드  ▓▓ 실행(다운로드 직후)
+
+defer      HTML ████████████████████▌
+           JS    ▓▓▓▓ 다운로드         ▓▓ 실행(파싱 완료 후)
+```
+
+DOM을 다루는 애플리케이션 코드는 `defer`나 `type="module"`이 기본 선택이다. 파서 차단이 사라지고 실행 순서도 보장된다. `async`는 다른 코드나 DOM 구조에 의존하지 않는 분석 도구 같은 스크립트에 적합하다. 다운로드는 병렬로 하지만 실행하는 순간에는 파싱을 잠시 멈춘다는 점은 알아 두어야 한다.
+
+예전에는 스크립트를 `<body>` 끝에 두는 방식을 많이 썼다. 파서가 거의 끝난 시점에 스크립트를 만나게 하는 방법이지만, 다운로드도 그만큼 늦게 시작된다. `<head>`에 두고 `defer`를 붙이면 다운로드는 일찍 시작하고 실행만 뒤로 미룰 수 있다.
+
+### 꼭 먼저 실행해야 하는 스크립트는 작게, 인라인으로
+
+저장된 테마를 첫 화면에 적용하는 코드처럼, 첫 Paint 전에 반드시 실행되어야 하는 스크립트도 있다. 이 경우에는 블로킹을 의도적으로 선택하되, 네트워크 왕복이 생기지 않도록 인라인으로 작성하고 크기를 최소한으로 유지한다.
+
+이때 스크립트의 위치도 중요하다. 스타일을 읽지 않는 인라인 스크립트라면 스타일시트보다 **앞에** 두어야 CSS 로드를 기다리지 않고 바로 실행된다.
+
+```html
+<!-- CSS를 기다리지 않고 바로 실행된다 -->
+<script>
+  document.documentElement.dataset.theme = localStorage.getItem('theme') ?? 'light';
+</script>
+<link rel="stylesheet" href="main.css" />
+
+<!-- main.css 로드가 끝날 때까지 실행이 보류된다 -->
+<link rel="stylesheet" href="main.css" />
+<script>
+  document.documentElement.dataset.theme = localStorage.getItem('theme') ?? 'light';
+</script>
+```
+
+### 렌더링을 막는 CSS 줄이기
+
+- 첫 화면에 필요한 스타일만 `<style>`로 인라인하고, 나머지는 나중에 불러온다(Critical CSS).
+- 사용하지 않는 CSS를 제거하고, 조건부 스타일에는 `media` 속성을 지정한다.
+- CSS 안의 `@import`는 직렬 요청을 만들기 때문에 `<link>`로 나란히 불러오거나 빌드 단계에서 합친다.
+
+렌더링을 막는 CSS가 빨리 준비되면 그 뒤에서 기다리던 스크립트도 함께 빨라진다.
+
+### Long Task 나누기
+
+긴 작업은 중간중간 메인 스레드를 양보해서, 그 사이에 브라우저가 렌더링과 입력 처리를 할 수 있게 한다.
+
+```js
+const yieldToMain = () => {
+  if ('scheduler' in globalThis && 'yield' in globalThis.scheduler) {
+    return globalThis.scheduler.yield();
+  }
+  return new Promise((resolve) => setTimeout(resolve, 0));
+};
+
+const processItems = async (items) => {
+  for (const [index, item] of items.entries()) {
+    processItem(item);
+    if (index % 50 === 0) {
+      await yieldToMain();
+    }
+  }
+};
+```
+
+`setTimeout`은 남은 작업을 **새 Task**로 넘기기 때문에 그 사이에 렌더링이 끼어들 수 있다. 반면 `await Promise.resolve()`는 Microtask로 이어지므로 양보 효과가 없다. `scheduler.yield()`는 양보한 뒤 이어지는 작업의 우선순위를 유지해 주지만 지원하는 브라우저가 아직 제한적이므로, 위 예시처럼 대체 경로를 두는 것이 안전하다. [web.dev — Optimize long tasks](https://web.dev/articles/optimize-long-tasks)
+
+용도에 맞는 API를 고르는 것도 도움이 된다.
+
+| API                     | 적합한 작업                                                |
+| ----------------------- | ---------------------------------------------------------- |
+| `requestAnimationFrame` | 다음 프레임을 그리기 직전에 해야 하는 DOM 갱신, 애니메이션 |
+| `requestIdleCallback`   | 급하지 않은 작업(로그 전송, 미리 불러오기 등)              |
+| Web Worker              | DOM이 필요 없는 무거운 계산(대용량 데이터 파싱, 정렬 등)   |
+
+Web Worker는 별도 스레드에서 동작하므로 메인 스레드를 전혀 막지 않는다. 대신 DOM에 접근할 수 없고, 메인 스레드와는 메시지로만 데이터를 주고받는다.
+
+### 보내는 JavaScript 자체를 줄이기
+
+- **덜 보내기**: 사용하지 않는 코드를 제거하고, 무거운 라이브러리를 가벼운 대안으로 바꾼다.
+- **나눠서 보내기**: 코드 스플리팅과 `import()`로 지금 필요한 코드만 불러온다.
+- **나중에 보내기**: 사용자가 상호작용하거나 요소가 화면에 보일 때 불러온다.
+- **서버에서 그리기**: SSR이나 SSG로 HTML에 콘텐츠를 담아 두면, JavaScript가 실행되기 전에도 첫 화면을 그릴 수 있다.
+- **미리 받기**: `<link rel="modulepreload">`나 `<link rel="preload" as="script">`로 다운로드 시점만 앞당긴다. 실행 시점은 바뀌지 않는다.
+
+## 10. 개발자 도구로 확인하기
+
+| 도구                   | 확인할 항목                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------------ |
+| Lighthouse             | Eliminate render-blocking resources, Reduce JavaScript execution time, Total Blocking Time |
+| DevTools — Performance | 메인 스레드의 Long Task 표시, HTML 파싱이 끊긴 지점, 스크립트 평가 시간, Layout·Paint 구간 |
+| DevTools — Network     | Waterfall에서 리소스 요청이 시작된 시점, Initiator 열로 리소스를 늦게 발견했는지 여부      |
+| DevTools — Coverage    | 불러왔지만 실행되지 않은 JavaScript와 CSS의 비율                                           |
+
+Performance 패널에서 페이지 로딩을 기록하면 메인 스레드에서 Parse HTML, Evaluate Script, Recalculate Style, Layout, Paint가 어떤 순서로 실행됐는지 볼 수 있다. 50ms가 넘는 작업에는 빨간 표시가 붙으므로, 첫 화면 전후에 어떤 작업이 메인 스레드를 오래 차지하는지 확인하기 좋다. [Chrome DevTools — Performance features reference](https://developer.chrome.com/docs/devtools/performance/reference)
+
+## 마치며
+
+정리해 보면 브라우저는 HTML을 받는 대로 DOM을 만들고, CSS는 모두 받을 때까지 렌더링을 미룬 채 CSSOM으로 만든다. 일반 스크립트는 파싱을 멈추고 앞선 CSS까지 기다린 뒤 실행된다. DOM과 CSSOM이 준비되면 보일 노드만 모아 스타일을 확정하고, Layout으로 위치와 크기를, Paint로 그리기 명령을, Rasterize와 Composite로 실제 픽셀을 만든다.
+
+이 흐름을 알고 나면 성능 개선 방법들이 각각 어느 단계를 겨냥하는지 보인다. `defer`는 파서 차단을, Critical CSS는 렌더링 차단을, Long Task 분할은 메인 스레드 점유를, `transform` 애니메이션은 Layout과 Paint 재실행을 줄인다. 첫 화면까지는 막는 리소스의 수와 크기, 의존 관계를 줄이고, 그 이후에는 메인 스레드를 오래 붙잡지 않는 것이 핵심이다.
+
+## 참고 자료
+
+- [MDN — Critical rendering path](https://developer.mozilla.org/en-US/docs/Web/Performance/Guides/Critical_rendering_path)
+- [MDN — How browsers work](https://developer.mozilla.org/en-US/docs/Web/Performance/Guides/How_browsers_work)
+- [HTML Standard — The script element](https://html.spec.whatwg.org/multipage/scripting.html#the-script-element)
+- [web.dev — Constructing the Object Model](https://web.dev/articles/critical-rendering-path/constructing-the-object-model)
+- [web.dev — Render blocking CSS](https://web.dev/articles/critical-rendering-path/render-blocking-css)
+- [web.dev — Analyzing critical rendering path performance](https://web.dev/articles/critical-rendering-path/analyzing-crp)
+- [web.dev — Don't fight the browser preload scanner](https://web.dev/articles/preload-scanner)
+- [web.dev — Optimize long tasks](https://web.dev/articles/optimize-long-tasks)
+- [web.dev — Avoid large, complex layouts and layout thrashing](https://web.dev/articles/avoid-large-complex-layouts-and-layout-thrashing)
+- [Chrome for Developers — Inside look at modern web browser (part 3)](https://developer.chrome.com/blog/inside-browser-part3)
+- [Chrome DevTools — Performance features reference](https://developer.chrome.com/docs/devtools/performance/reference)
