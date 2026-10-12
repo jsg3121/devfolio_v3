@@ -1,7 +1,7 @@
 ---
 title: '포케코리아 이미지 지연 로딩 — loading="lazy" 대신 커스텀 훅을 만든 이유'
 slug: 'poke-korea-custom-lazy-image-hook'
-summary: '브라우저 기본 loading="lazy"는 로드 시작 거리를 개발자가 조정할 수 없어 모바일에서 효과가 작다고 판단했다. IntersectionObserver로 useLazyImage 훅을 직접 만들고, 컴포넌트별로 감지 거리를 다르게 적용한 과정을 정리합니다.'
+summary: '브라우저 기본 loading="lazy"는 이미지를 미리 불러오는 거리를 개발자가 조정할 수 없어, 모바일에서는 효과가 작다고 판단했습니다. IntersectionObserver로 useLazyImage 훅을 직접 만들고, 컴포넌트마다 감지 거리를 다르게 적용한 과정을 정리합니다.'
 tags:
   - 'lazy-loading'
   - 'intersection-observer'
@@ -18,22 +18,20 @@ featured: true
 published: true
 order: 38
 seoTitle: 'loading="lazy" 대신 IntersectionObserver 커스텀 훅을 만든 이유 — 포케코리아'
-seoDescription: '브라우저 기본 lazy loading의 한계를 보완하기 위해 IntersectionObserver 기반 useLazyImage 훅을 만들고, rootMargin으로 컴포넌트별 감지 거리를 조정한 과정을 정리합니다.'
+seoDescription: '브라우저 기본 lazy loading은 로드 시작 거리를 조정할 수 없습니다. IntersectionObserver 기반 useLazyImage 훅을 만들고 rootMargin으로 컴포넌트별 감지 거리를 조정한 과정과, 첫 화면 이미지를 분리한 하이브리드 구조를 정리합니다.'
 ---
 
 ## 들어가며
 
-포케코리아의 도감 리스트는 무한 스크롤 구조다. 스크롤을 내릴수록 포켓몬 카드가 계속 추가되고, 카드마다 포켓몬 이미지가 하나씩 들어간다. 1,000마리가 넘는 포켓몬을 다루다 보니 **"이미지를 언제 불러올 것인가"** 가 체감 성능에 직접 영향을 줬다.
+포케코리아의 도감 리스트는 무한 스크롤 구조다. 스크롤을 내릴수록 포켓몬 카드가 계속 추가되고, 카드마다 포켓몬 이미지가 하나씩 들어간다. 다루는 포켓몬이 1,000마리가 넘다 보니, 이미지를 언제 불러오느냐가 체감 성능에 직접 영향을 줬다.
 
-처음에는 브라우저가 기본으로 제공하는 `loading="lazy"`를 사용했다. 하지만 몇 가지 이유로 이것만으로는 부족하다고 판단했고, `IntersectionObserver`를 이용한 `useLazyImage` 훅을 직접 만들어 적용했다. 이 글에서는 그 판단 과정과 구현 내용을 정리한다.
+처음에는 브라우저가 기본으로 제공하는 `loading="lazy"`를 사용했다. 그런데 이 방식으로는 모바일에서 기대한 만큼의 효과를 얻기 어렵다고 판단했고, `IntersectionObserver`로 `useLazyImage` 훅을 직접 만들어 교체했다. 이번 글에서는 그 판단의 근거와 훅의 구현, 그리고 실제 컴포넌트에 적용한 방식을 정리한다.
 
-> 이미지 크기와 `fetchPriority` 최적화는 [포케코리아 웹 성능 최적화 3편](/articles/poke-korea-performance-3-responsive-images)에서 다뤘다.
+이미지 크기 계산과 `fetchPriority` 조정은 [포케코리아 웹 성능 최적화 3편](/articles/poke-korea-performance-3-responsive-images)에서 다뤘으므로, 이 글에서는 이미지를 불러오는 **시점**에 집중한다. 코드는 실제 프로젝트 코드를 기준으로 하되, 설명에 필요하지 않은 props와 클래스는 생략했다.
 
-## 기존 방식과 한계
+## 1. 기존 방식 — loading="lazy"
 
-### loading="lazy"를 사용하던 코드
-
-훅을 도입하기 전 데스크톱 리스트 카드는 아래와 같은 방식이었다. 앞쪽 20개 카드에는 `fetchPriority="high"`를 주고, 나머지는 `loading="lazy"`로 브라우저에 지연 로딩을 맡겼다.
+훅을 도입하기 전 데스크톱 리스트 카드는 다음과 같은 방식이었다. 앞쪽 20개 카드에는 `fetchPriority="high"`를 주고, 나머지는 `loading="lazy"`로 브라우저에 지연 로딩을 맡겼다.
 
 ```tsx
 // List.container.tsx
@@ -54,34 +52,51 @@ seoDescription: '브라우저 기본 lazy loading의 한계를 보완하기 위�
 />;
 ```
 
-### 왜 부족하다고 판단했나
+`loading="lazy"`는 속성 하나만 붙이면 되기 때문에 간편하다. 화면 밖에 있는 이미지는 바로 요청하지 않고, 사용자가 스크롤해서 가까워졌을 때 요청한다.
 
-`loading="lazy"`는 속성 하나로 지연 로딩을 적용할 수 있어 편리하다. 다만 **이미지를 화면에서 얼마나 떨어진 지점부터 불러올지는 브라우저가 정하고, 개발자는 이 값을 바꿀 수 없다.**
+## 2. 부족하다고 판단한 이유 — 미리 불러오는 거리를 정할 수 없다
 
-도입 당시에는 이 기준 거리가 기기 구분 없이 약 2000px 정도라고 알고 있었다. 이 기준이 맞다면 모바일에서는 문제가 된다. 모바일 화면 높이는 보통 700~900px 정도라서, 2000px 앞에서부터 로드한다는 것은 **아직 보이지 않는 두세 화면 분량의 이미지를 미리 받는다**는 뜻이다. 화면이 작은 모바일일수록 "지연" 로딩의 효과가 줄어드는 셈이다.
+문제는 **"얼마나 가까워졌을 때"** 를 브라우저가 정한다는 점이다. 브라우저는 사용자가 이미지에 도착하기 전에 로드가 끝나도록 화면보다 꽤 앞에서부터 이미지를 요청하는데, 이 거리는 개발자가 바꿀 수 없다.
 
-그래서 감지 거리를 직접 정할 수 있는 방식이 필요했다.
+도입 당시에는 이 거리가 기기 구분 없이 약 2000px 정도라고 알고 있었다. 이 기준이 맞다면 모바일에서는 문제가 된다. 모바일 화면 높이는 보통 700~900px 정도이므로, 2000px 앞에서부터 불러온다는 것은 아직 보이지 않는 두세 화면 분량의 이미지를 미리 받는다는 뜻이다.
 
-## IntersectionObserver 간단히 짚기
+```text
++---------+
+|         |  화면 (약 700~900px)
++---------+
+|         |
+|         |  미리 받는 구간 (약 2000px)
+|         |  아직 보이지 않지만 이미지를 요청한다
+|         |
++---------+
+|         |  이후 구간
+|         |  스크롤로 가까워질 때 요청한다
+```
 
-`IntersectionObserver`는 **특정 요소가 화면(또는 지정한 영역)에 들어왔는지를 브라우저가 알려주는 API**다. 스크롤 이벤트를 직접 듣고 위치를 계산하지 않아도, 요소가 보이기 시작하거나 사라질 때 콜백을 받을 수 있다.
+화면이 작을수록 미리 받는 구간이 화면 대비 커지고, 그만큼 "지연" 로딩의 효과는 줄어든다. 그래서 미리 감지하는 거리를 직접 정할 수 있는 방식이 필요했다.
+
+## 3. IntersectionObserver 짚고 가기
+
+훅을 보기 전에, 훅이 사용하는 API를 짧게 짚고 넘어가려 한다.
+
+`IntersectionObserver`는 **특정 요소가 화면(또는 지정한 영역)과 겹치기 시작했는지를 브라우저가 알려주는 API**다. 스크롤 이벤트를 직접 듣고 요소의 위치를 계산하지 않아도, 요소가 보이기 시작하거나 사라질 때 콜백을 받을 수 있다.
 
 ```ts
 const observer = new IntersectionObserver(callback, options);
 observer.observe(element);
 ```
 
-훅에서 실제로 사용한 옵션은 아래에서 설명하고, 사용하지 않은 부분만 간단히 정리하면 다음과 같다.
+훅에서 사용한 옵션은 다음 장에서 코드와 함께 설명하고, 여기서는 사용하지 않은 부분만 간단히 정리한다.
 
-- **`root`**: 교차 여부를 판단할 기준 영역이다. 생략하면 브라우저 화면(뷰포트)이 기준이 되고, 특정 스크롤 컨테이너를 기준으로 지정할 수도 있다.
-- **`threshold` 배열**: `[0, 0.5, 1]`처럼 배열로 넘기면 요소가 0%, 50%, 100% 보일 때마다 콜백을 받을 수 있다. 스크롤 진행도 표시 같은 곳에 쓰인다.
-- **`intersectionRatio`**: 콜백으로 전달되는 entry에는 "보이는지 여부" 외에도 요소가 몇 % 보이는지 비율 값이 들어 있다.
+| 항목                      | 설명                                                                                           |
+| ------------------------- | ---------------------------------------------------------------------------------------------- |
+| `root`                    | 겹침을 판단할 기준 영역. 생략하면 화면(뷰포트)이 기준이고, 특정 스크롤 영역을 지정할 수도 있다 |
+| `threshold` 배열          | `[0, 0.5, 1]`처럼 넘기면 0%, 50%, 100% 지점마다 콜백을 받는다. 스크롤 진행도 표시 등에 쓰인다  |
+| `entry.intersectionRatio` | 요소가 기준 영역 안에 몇 % 들어왔는지를 0~1 사이 값으로 알려준다                               |
 
-> 참고: [MDN — IntersectionObserver() constructor](https://developer.mozilla.org/en-US/docs/Web/API/IntersectionObserver/IntersectionObserver), [MDN — IntersectionObserverEntry](https://developer.mozilla.org/en-US/docs/Web/API/IntersectionObserverEntry)
+[MDN — IntersectionObserver() constructor](https://developer.mozilla.org/en-US/docs/Web/API/IntersectionObserver/IntersectionObserver)
 
-## useLazyImage 훅 구현
-
-### 전체 코드
+## 4. useLazyImage 훅 구현
 
 ```ts
 import { useEffect, useRef, useState } from 'react';
@@ -144,23 +159,21 @@ export const useLazyImage = (options: UseLazyImageOptions = {}) => {
 
 ### rootMargin — 얼마나 미리 감지할 것인가
 
-`rootMargin`은 기준 영역(화면)의 경계를 늘리거나 줄이는 값이다. CSS `margin`과 같은 문법을 사용한다.
+`rootMargin`은 기준 영역의 경계를 늘리거나 줄이는 값으로, CSS `margin`과 같은 문법을 사용한다. `'200px'`로 지정하면 화면 위아래로 200px씩 넓힌 영역을 기준으로 겹침을 판단한다. 즉 이미지가 실제로 화면에 들어오기 200px 전에 로드를 시작한다.
 
-`'200px'`로 지정하면 화면 위아래로 200px씩 넓어진 영역을 기준으로 판단한다. 즉 **이미지가 실제로 화면에 들어오기 200px 전에 로드를 시작**한다. 사용자가 스크롤로 도착했을 때는 이미 이미지가 준비되어 있고, 그보다 먼 이미지는 받지 않는다.
-
-이 값을 직접 정할 수 있다는 점이 `loading="lazy"` 대신 훅을 만든 가장 큰 이유다.
+사용자가 스크롤로 도착했을 때는 이미지가 준비되어 있고, 그보다 멀리 있는 이미지는 아직 요청하지 않는다. 이 거리를 직접 정할 수 있다는 점이 `loading="lazy"` 대신 훅을 만든 가장 큰 이유다.
 
 ### threshold — 얼마나 들어와야 실행할 것인가
 
-`threshold: 0.1`은 요소가 기준 영역 안에 **10% 이상 들어왔을 때** 콜백을 실행한다는 뜻이다. `rootMargin`으로 넓힌 영역 기준이므로, 실제로는 화면 200px 바깥에서 요소가 살짝 걸쳤을 때 로드가 시작된다.
+`threshold: 0.1`은 요소가 기준 영역 안에 10% 이상 들어왔을 때 콜백을 실행한다는 뜻이다. 기준 영역은 `rootMargin`으로 넓힌 영역이므로, 실제로는 화면에서 200px 떨어진 지점에 요소가 조금 걸쳤을 때 로드가 시작된다.
 
 ### isIntersecting — 들어왔는지만 확인한다
 
-콜백의 `entries`에는 교차 상태가 바뀐 요소들의 정보가 배열로 들어온다. 이 훅은 "화면 근처에 들어왔는가"만 알면 되므로 `entry.isIntersecting` 값 하나만 확인한다.
+콜백의 `entries`에는 겹침 상태가 바뀐 요소들의 정보가 배열로 들어온다. 이 훅은 "화면 근처에 들어왔는가"만 알면 되므로 `entry.isIntersecting` 값 하나만 확인한다.
 
-### unobserve / disconnect — 한 번 로드하면 관찰을 끝낸다
+### unobserve와 disconnect — 한 번 불러오면 관찰을 끝낸다
 
-이미지는 한 번 불러오면 다시 불러올 필요가 없다. 그래서 처음 감지된 순간 `unobserve`로 해당 요소의 관찰을 해제한다. 컴포넌트가 사라질 때는 cleanup 함수에서 `disconnect`를 호출해 옵저버를 정리한다.
+이미지는 한 번 불러오면 다시 불러올 필요가 없다. 그래서 처음 감지된 순간 `unobserve`로 해당 요소의 관찰을 해제하고, 컴포넌트가 사라질 때는 cleanup 함수에서 `disconnect`로 옵저버를 정리한다.
 
 ### 스켈레톤과 페이드인
 
@@ -169,9 +182,9 @@ export const useLazyImage = (options: UseLazyImageOptions = {}) => {
 | 상태        | 의미                            | 화면 처리                   |
 | ----------- | ------------------------------- | --------------------------- |
 | `isVisible` | 이미지가 화면 근처에 들어왔는가 | `false`면 스켈레톤 표시     |
-| `isLoaded`  | 이미지 파일 다운로드가 끝났는가 | `true`가 되면 opacity 0 → 1 |
+| `isLoaded`  | 이미지 다운로드가 끝났는가      | `true`가 되면 opacity 0 → 1 |
 
-`isVisible`이 `false`인 동안에는 `<img>` 태그 자체를 렌더링하지 않고 스켈레톤만 보여준다. 이미지가 렌더링된 뒤에도 다운로드가 끝날 때까지는 투명하게 두었다가, `onLoad` 시점에 부드럽게 나타나도록 했다.
+`isVisible`이 `false`인 동안에는 `<img>` 태그 자체를 렌더링하지 않고 스켈레톤만 보여준다. 이미지를 렌더링한 뒤에도 다운로드가 끝날 때까지는 투명하게 두었다가, `onLoad` 시점에 서서히 나타나게 했다.
 
 ```tsx
 const { imgRef, isVisible, isLoaded, handleImageLoad, handleImageError } = useLazyImage({
@@ -196,31 +209,31 @@ const { imgRef, isVisible, isLoaded, handleImageLoad, handleImageError } = useLa
 </div>;
 ```
 
-## 컴포넌트별 적용
+## 5. 컴포넌트별 적용
 
 ### 감지 거리를 다르게 설정하기
 
-훅을 만든 덕분에 사용하는 곳마다 `rootMargin`을 다르게 줄 수 있었다.
+훅으로 만들어 두니 사용하는 곳마다 `rootMargin`을 다르게 줄 수 있었다.
 
-| 컴포넌트              | rootMargin | 이유                                                     |
-| --------------------- | ---------- | -------------------------------------------------------- |
-| 도감 리스트 카드      | `200px`    | 카드가 크고 스크롤 속도가 빨라 여유 있게 미리 로드       |
-| 챔피언스 티어 리스트  | `200px`    | 리스트 카드와 같은 구조                                  |
-| 헤더 검색 결과 리스트 | `50px`     | 32px 크기의 작은 이미지이고, 짧은 드롭다운 목록이라 충분 |
+| 컴포넌트              | rootMargin | 이유                                              |
+| --------------------- | ---------- | ------------------------------------------------- |
+| 도감 리스트 카드      | `200px`    | 이미지가 크고 리스트가 길어 여유 있게 미리 로드   |
+| 챔피언스 티어 리스트  | `200px`    | 리스트 카드와 같은 구조                           |
+| 헤더 검색 결과 리스트 | `50px`     | 32px 크기의 작은 이미지이고, 목록이 짧은 드롭다운 |
 
-브라우저 기본 `loading="lazy"`였다면 세 곳 모두 같은 기준으로 동작했을 것이다.
+`loading="lazy"`였다면 세 곳 모두 브라우저가 정한 같은 기준으로 동작했을 것이다.
 
 ### 첫 화면 이미지는 훅을 거치지 않는다
 
-이후에는 첫 화면에 보이는 이미지는 훅을 거치지 않고 바로 로드하도록 구조를 나눴다. 처음부터 화면에 보이는 이미지까지 옵저버 감지를 기다리게 하면 오히려 표시가 늦어지기 때문이다.
+이후에는 첫 화면에 보이는 이미지를 훅에서 분리했다. 처음부터 화면 안에 있는 이미지까지 옵저버의 감지를 기다리게 하면, 그만큼 표시가 늦어지기 때문이다.
 
 ```tsx
 {
   isHighPriority ? (
-    // 첫 화면 이미지: 즉시 높은 우선순위로 로드
+    // 첫 화면 이미지: 바로 높은 우선순위로 요청
     <Image src={imageSrc} fetchPriority="high" />
   ) : (
-    // 나머지: useLazyImage로 화면 근처에 왔을 때 로드
+    // 나머지: 화면 근처에 왔을 때 요청
     <div ref={imgRef}>
       {isVisible ? <Image src={imageSrc} onLoad={handleImageLoad} /> : <Skeleton />}
     </div>
@@ -228,42 +241,38 @@ const { imgRef, isVisible, isLoaded, handleImageLoad, handleImageError } = useLa
 }
 ```
 
-결과적으로 **첫 화면은 `fetchPriority="high"`로 빠르게, 그 아래는 커스텀 훅으로 필요한 만큼만** 불러오는 구조가 됐다.
+결과적으로 첫 화면은 `fetchPriority="high"`로 빠르게 그리고, 그 아래는 훅으로 필요한 만큼만 불러오는 구조가 됐다.
 
-## 아티클을 쓰며 추가로 확인한 사실
+## 6. 글을 쓰며 다시 확인한 것
 
-글을 정리하면서 도입 당시 판단의 근거를 공식 문서로 다시 확인해 봤다.
+이 글을 정리하면서 도입 당시의 판단 근거를 공식 문서로 다시 확인해 봤다.
 
-### 실제 기준 거리는 네트워크 속도에 따라 달랐다
+### 기준 거리는 고정값이 아니었다
 
-도입 당시에는 `loading="lazy"`의 기준 거리를 약 2000px로 알고 있었지만, 실제 Chrome의 기준은 고정값이 아니었다. web.dev 문서에 따르면 **네트워크 속도에 따라** 기준 거리가 달라진다.
+도입 당시에는 `loading="lazy"`의 기준 거리를 약 2000px로 알고 있었는데, 실제 Chrome의 기준은 고정값이 아니라 **네트워크 속도에 따라** 달라진다.
 
 | 네트워크 | 기준 거리 |
 | -------- | --------- |
 | 4G       | 1250px    |
 | 3G 이하  | 2500px    |
 
-이 값은 2020년 7월에 각각 3000px, 4000px에서 줄어든 것이고, 현재 Chromium 소스 코드의 기본값도 같다. 기준에 기기 종류는 포함되지 않는다.
+이 값은 2020년 7월에 각각 3000px, 4000px에서 줄어든 것이고, 현재 Chromium 소스의 기본값도 같다. 기준에 기기 종류는 포함되지 않는다. [web.dev — Browser-level image lazy loading for the web](https://web.dev/articles/browser-level-image-lazy-loading)
 
-정확한 수치는 달랐지만, **"기기와 상관없이 브라우저가 정한 거리부터 미리 로드하고, 개발자는 이를 조정할 수 없다"** 는 당시 판단의 방향은 맞았다.
+수치는 달랐지만, 기기와 상관없이 브라우저가 정한 거리부터 미리 불러오고 개발자는 이를 조정할 수 없다는 당시 판단의 방향은 맞았다.
 
-> 참고: [web.dev — Browser-level image lazy loading for the web](https://web.dev/articles/browser-level-image-lazy-loading)
+### loading="lazy"도 IntersectionObserver로 동작한다
 
-### loading="lazy"도 내부적으로 IntersectionObserver를 쓴다
+Chromium 소스를 보면 `loading="lazy"` 역시 내부적으로 IntersectionObserver를 사용한다. 네트워크 속도에 맞는 기준 거리를 고른 뒤, 그 값을 감지 여백으로 넘겨 옵저버를 만드는 방식이다. [Chromium — lazy_load_media_observer.cc](https://chromium.googlesource.com/chromium/src/+/main/third_party/blink/renderer/core/html/media/lazy_load_media_observer.cc)
 
-Chromium 소스를 보면 `loading="lazy"` 역시 내부적으로 IntersectionObserver를 사용해 구현되어 있다. 네트워크 속도별 기준 거리를 계산한 뒤, 그 값을 감지 여백으로 넘겨 옵저버를 만든다.
+결국 브라우저 기본 기능과 직접 만든 훅은 같은 원리로 동작하고, 차이는 미리 감지하는 거리를 누가 정하느냐에 있었다.
 
-즉 브라우저 기본 기능과 직접 만든 훅은 **같은 원리로 동작하고, 차이는 "미리 감지하는 거리를 누가 정하느냐"** 에 있었다.
+## 마치며
 
-> 참고: [Chromium — lazy_load_media_observer.cc](https://chromium.googlesource.com/chromium/src/+/main/third_party/blink/renderer/core/html/media/lazy_load_media_observer.cc)
+정리해 보면 `loading="lazy"`는 간편하지만, 이미지를 미리 불러오는 거리를 브라우저가 정하고 개발자는 조정할 수 없다. 화면이 작은 모바일에서는 이 거리가 화면 대비 크게 잡히기 때문에, 직접 거리를 정할 수 있는 방식이 필요했다.
 
-## 정리하며
+`IntersectionObserver`의 `rootMargin`을 이용하면 이 거리를 직접 정할 수 있고, 훅으로 만들어 두면 컴포넌트마다 다르게 적용할 수 있다. 여기에 첫 화면 이미지는 `fetchPriority="high"`로 바로 요청하고 나머지만 지연 로딩을 적용하는 방식으로, 이미지를 불러오는 시점을 화면 위치에 맞게 나눌 수 있었다.
 
-- `loading="lazy"`는 간편하지만 로드 시작 거리를 브라우저가 정하고, 개발자가 조정할 수 없다.
-- `IntersectionObserver`의 `rootMargin`을 이용하면 감지 거리를 직접 정할 수 있고, 컴포넌트마다 다르게 적용할 수 있다.
-- 첫 화면 이미지는 `fetchPriority="high"`로 즉시 로드하고, 나머지만 지연 로딩을 적용하는 조합으로 정리했다.
-
-### 참고 자료
+## 참고 자료
 
 - [MDN — IntersectionObserver() constructor](https://developer.mozilla.org/en-US/docs/Web/API/IntersectionObserver/IntersectionObserver)
 - [MDN — IntersectionObserverEntry](https://developer.mozilla.org/en-US/docs/Web/API/IntersectionObserverEntry)
